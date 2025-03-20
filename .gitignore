@@ -1,0 +1,22 @@
+# Ignorar la carpeta del entorno virtual
+env/
+venv/
+.env/
+
+# Ignorar archivos de Python compilados
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignorar archivos de configuración sensible
+.env
+*.env
+
+# Ignorar archivos de IDE
+.idea/
+.vscode/
+
+# Ignorar archivos de base de datos (si usas SQLite, por ejemplo)
+*.db
+*.sqlite3
