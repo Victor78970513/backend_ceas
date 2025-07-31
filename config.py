@@ -11,4 +11,10 @@ def get_bd():
     db = SessionLocal()
     try:
         yield db
-    finally: db.close()
+    finally:
+        db.close()
+
+# Variables globales para JWT y otros settings
+SECRET_KEY = "double_dog123"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
