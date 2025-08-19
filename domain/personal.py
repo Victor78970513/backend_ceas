@@ -9,4 +9,8 @@ class Personal:
     apellidos: str
     cargo: int
     fecha_ingreso: Optional[str]
-    salario: float 
+    salario: float
+    correo: Optional[str] = None
+    departamento: Optional[str] = None
+    estado: bool = True
+    nombre_cargo: Optional[str] = None 

@@ -7,4 +7,8 @@ class Compra:
     id_proveedor: int
     fecha_de_compra: Optional[str]
     monto_total: float
-    estado: str 
+    estado: str
+    fecha_de_entrega: Optional[str]
+    cantidad_items: int
+    categoria: Optional[str] = None
+    proveedor: Optional[str] = None 

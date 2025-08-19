@@ -17,4 +17,4 @@ def get_bd():
 # Variables globales para JWT y otros settings
 SECRET_KEY = "double_dog123"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 1 día (24 horas * 60 minutos)

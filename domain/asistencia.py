@@ -6,6 +6,8 @@ class Asistencia:
     id_asistencia: int
     id_personal: int
     fecha: str
-    hora_ingreso: str
+    hora_ingreso: Optional[str]
     hora_salida: Optional[str]
-    observaciones: Optional[str] 
+    observaciones: Optional[str]
+    estado: Optional[str] = None
+    nombre_empleado: Optional[str] = None 

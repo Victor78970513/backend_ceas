@@ -8,4 +8,6 @@ class Proveedor:
     contacto: Optional[str]
     telefono: Optional[str]
     correo_electronico: Optional[str]
-    direccion: Optional[str] 
+    direccion: Optional[str]
+    estado: bool
+    productos_servicios: Optional[str] 

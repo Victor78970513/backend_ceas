@@ -7,7 +7,7 @@ from config import SessionLocal
 
 router = APIRouter(prefix="/catalogos", tags=["catalogos"])
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
@@ -30,7 +30,7 @@ def get_estados_pago(current_user=Depends(get_current_user)):
 
 @router.get("/modalidades-pago")
 def get_modalidades_pago(current_user=Depends(get_current_user)):
-    return fetch_catalog("SELECT id_modalidad_pago, descripcion, meses_de_gracia, porcentaje_renovacion_inicial, porcentaje_renovacion_mensual, costo_renovacion_estandar FROM modalidad_pago")
+    return fetch_catalog("SELECT id_modalidad_pago, descripcion, meses_de_gracia, porcentaje_renovacion_inicial, porcentaje_renovacion_mensual, costo_renovacion_estandar FROM modalidadpago")
 
 @router.get("/estados-accion")
 def get_estados_accion(current_user=Depends(get_current_user)):

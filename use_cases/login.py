@@ -9,7 +9,7 @@ class LoginUseCase:
         self.user_repository = user_repository
 
     def login(self, login_data: UserLoginRequest) -> UserLoginResponse:
-        user: User = self.user_repository.get_by_username(login_data.nombre_usuario)
+        user: User = self.user_repository.get_by_email(login_data.correo_electronico)
         if not user or not verify_password(login_data.contrasena, user.contrasena_hash):
             raise HTTPException(status_code=401, detail="Credenciales incorrectas")
         token = create_access_token({
@@ -23,5 +23,6 @@ class LoginUseCase:
             nombre_usuario=user.nombre_usuario,
             rol=user.rol,
             id_usuario=user.id_usuario,
-            id_club=user.id_club
+            id_club=user.id_club,
+            correo_electronico=user.correo_electronico
         ) 

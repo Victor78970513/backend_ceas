@@ -11,5 +11,5 @@ class Accion:
     certificado_pdf: Optional[str]
     certificado_cifrado: bool
     fecha_emision_certificado: Optional[str]
-    saldo_pendiente: Optional[float]
-    tipo_accion: Optional[str] 
+    tipo_accion: Optional[str]
+    socio_titular: Optional[str] = None 

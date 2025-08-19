@@ -9,4 +9,5 @@ class User:
     rol: int
     estado: str
     id_club: int
+    correo_electronico: str
     ultimo_acceso: Optional[str] = None 

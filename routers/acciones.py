@@ -1,15 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
-from schemas.accion import AccionRequest, AccionResponse, AccionUpdateRequest
+from fastapi.responses import Response
+from schemas.accion import AccionRequest, AccionResponse, AccionUpdateRequest, AccionResponseCompleta
 from use_cases.accion import AccionUseCase
 from infrastructure.accion_repository import AccionRepository
 from fastapi.security import OAuth2PasswordBearer
 from typing import List
 import jwt
 from config import SECRET_KEY, ALGORITHM
+import base64
 
 router = APIRouter(prefix="/acciones", tags=["acciones"])
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
@@ -18,7 +20,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Token inválido o expirado")
 
-@router.get("/", response_model=List[AccionResponse])
+@router.get("/", response_model=List[AccionResponseCompleta])
 def list_acciones(current_user=Depends(get_current_user)):
     use_case = AccionUseCase(AccionRepository())
     return use_case.list_acciones()
@@ -46,7 +48,20 @@ def delete_accion(accion_id: int, current_user=Depends(get_current_user)):
 @router.post("/{accion_id}/generar-certificado")
 def generar_certificado(accion_id: int, current_user=Depends(get_current_user)):
     use_case = AccionUseCase(AccionRepository())
-    return use_case.generar_certificado(accion_id)
+    result = use_case.generar_certificado(accion_id)
+    
+    # Retornar PDF como archivo descargable
+    pdf_content = result["pdf_content"]
+    filename = result["filename"]
+    
+    return Response(
+        content=pdf_content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}",
+            "Content-Length": str(len(pdf_content))
+        }
+    )
 
 @router.get("/{accion_id}/ver-certificado")
 def ver_certificado(accion_id: int, current_user=Depends(get_current_user)):
@@ -61,4 +76,14 @@ def cifrar_certificado(accion_id: int, current_user=Depends(get_current_user)):
 @router.get("/{accion_id}/pagos")
 def get_pagos(accion_id: int, current_user=Depends(get_current_user)):
     use_case = AccionUseCase(AccionRepository())
-    return use_case.get_pagos(accion_id) 
+    return use_case.get_pagos(accion_id)
+
+@router.get("/estado-pagos-resumen")
+def list_acciones_con_estado_pagos(current_user=Depends(get_current_user)):
+    use_case = AccionUseCase(AccionRepository())
+    return use_case.list_acciones_con_estado_pagos()
+
+@router.get("/{accion_id}/estado-pagos")
+def get_estado_pagos(accion_id: int, current_user=Depends(get_current_user)):
+    use_case = AccionUseCase(AccionRepository())
+    return use_case.get_estado_pagos(accion_id) 
