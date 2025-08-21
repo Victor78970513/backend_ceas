@@ -67,4 +67,14 @@ class AccionUpdateRequest(BaseModel):
     certificado_pdf: Optional[str]
     certificado_cifrado: Optional[bool]
     saldo_pendiente: Optional[float]
-    tipo_accion: Optional[str] 
+    tipo_accion: Optional[str]
+
+class DescifrarCertificadoRequest(BaseModel):
+    password: str
+
+class CertificadoCifradoResponse(BaseModel):
+    pdf_cifrado: bytes
+    password: str
+    salt: str
+    password_hash: str
+    fecha_cifrado: str 

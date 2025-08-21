@@ -170,7 +170,8 @@ class AccionUseCase:
         }
         
         socio_data = {
-            'socio_titular': socio.get('nombres', '') + ' ' + socio.get('apellidos', ''),
+            'nombre': socio.get('nombres', ''),
+            'apellido': socio.get('apellidos', ''),
             'ci_nit': socio.get('ci_nit')
         }
         
@@ -178,14 +179,19 @@ class AccionUseCase:
             'precio_renovacion': estado_pagos['precio_renovacion']
         }
         
-        # Generar PDF
-        pdf_content = pdf_service.generar_certificado_accion(accion_data, socio_data, modalidad_data)
+        # Generar PDF (ahora viene cifrado)
+        resultado_pdf = pdf_service.generar_certificado_accion(accion_data, socio_data, modalidad_data)
         
-        return {
-            "detail": "Certificado generado exitosamente",
-            "pdf_content": pdf_content,
-            "filename": f"certificado_accion_{accion_id}.pdf"
-        }
+        # Si el PDF viene cifrado, retornar con información de cifrado
+        if isinstance(resultado_pdf, dict) and 'pdf_cifrado' in resultado_pdf:
+            return resultado_pdf
+        else:
+            # Fallback: PDF sin cifrar
+            return {
+                "detail": "Certificado generado exitosamente (sin cifrar)",
+                "pdf_content": resultado_pdf,
+                "filename": f"certificado_accion_{accion_id}.pdf"
+            }
 
     def ver_certificado(self, accion_id: int):
         # Placeholder
@@ -194,6 +200,65 @@ class AccionUseCase:
     def cifrar_certificado(self, accion_id: int):
         # Placeholder
         return {"detail": "Certificado cifrado (placeholder)"}
+    
+    def descifrar_certificado(self, accion_id: int, password: str):
+        """Descifra un certificado PDF con la contraseña proporcionada"""
+        try:
+            # Obtener datos de la acción
+            accion = self.accion_repository.get_accion(accion_id)
+            if not accion:
+                raise HTTPException(status_code=404, detail="Acción no encontrada")
+            
+            # Obtener el PDF cifrado (esto requeriría almacenar el PDF en la BD)
+            # Por ahora, vamos a generar el PDF y descifrarlo
+            from infrastructure.pdf_service import PDFService
+            pdf_service = PDFService()
+            
+            # Obtener datos del socio
+            socio = self.accion_repository.get_socio_by_id(accion.id_socio)
+            if not socio:
+                raise HTTPException(status_code=404, detail="Socio no encontrado")
+            
+            # Obtener modalidad de pago
+            modalidad = self.accion_repository.get_modalidad_pago(accion.modalidad_pago)
+            if not modalidad:
+                raise HTTPException(status_code=404, detail="Modalidad de pago no encontrada")
+            
+            # Calcular estado de pagos
+            pagos_realizados = self.accion_repository.get_pagos(accion_id)
+            estado_pagos = self.accion_repository.calcular_estado_pagos(accion, modalidad, pagos_realizados)
+            
+            # Preparar datos para el PDF
+            accion_data = {
+                'id_accion': accion.id_accion,
+                'id_socio': accion.id_socio,
+                'tipo_accion': accion.tipo_accion,
+                'fecha_emision_certificado': accion.fecha_emision_certificado
+            }
+            
+            socio_data = {
+                'nombre': socio.get('nombres', ''),
+                'apellido': socio.get('apellidos', ''),
+                'ci_nit': socio.get('ci_nit')
+            }
+            
+            modalidad_data = {
+                'precio_renovacion': estado_pagos['precio_renovacion']
+            }
+            
+            # Generar PDF cifrado
+            resultado_pdf = pdf_service.generar_certificado_accion(accion_data, socio_data, modalidad_data)
+            
+            if isinstance(resultado_pdf, dict) and 'pdf_cifrado' in resultado_pdf:
+                # Descifrar el PDF
+                pdf_descifrado = pdf_service.descifrar_pdf(resultado_pdf['pdf_cifrado'], password)
+                return pdf_descifrado
+            else:
+                # PDF sin cifrar
+                return resultado_pdf
+                
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Error descifrando certificado: {str(e)}")
 
     def get_pagos(self, accion_id: int):
         # Placeholder

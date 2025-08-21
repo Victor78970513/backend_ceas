@@ -8,6 +8,9 @@ from routers import personal
 from routers import asistencia
 from routers import finanzas
 from routers import bi
+from routers import bi_personal
+from routers import bi_administrativo
+from routers import bi_avanzado
 from routers import eventos
 from routers import reservas
 from routers import inventario
@@ -28,6 +31,9 @@ app.include_router(personal.router)
 app.include_router(asistencia.router)
 app.include_router(finanzas.router)
 app.include_router(bi.router)
+app.include_router(bi_personal.router)
+app.include_router(bi_administrativo.router)
+app.include_router(bi_avanzado.router)
 app.include_router(eventos.router)
 app.include_router(reservas.router)
 app.include_router(inventario.router)
