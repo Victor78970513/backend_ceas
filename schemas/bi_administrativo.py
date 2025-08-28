@@ -88,3 +88,4 @@ class FiltroBI(BaseModel):
     categoria_financiera: Optional[str] = None
     tipo_analisis: Optional[str] = None  # "financiero", "administrativo", "ambos"
 
+

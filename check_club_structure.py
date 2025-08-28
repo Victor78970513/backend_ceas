@@ -81,3 +81,4 @@ def check_club_structure():
 
 if __name__ == "__main__":
     check_club_structure()
+

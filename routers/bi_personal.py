@@ -85,3 +85,4 @@ def get_tendencias_mensuales(
     use_case = BIPersonalUseCase(BIPersonalRepository())
     return use_case.get_tendencias_mensuales(anio, departamento, cargo)
 
+
