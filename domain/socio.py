@@ -14,4 +14,5 @@ class Socio:
     estado: int
     fecha_de_registro: Optional[str] = None
     fecha_nacimiento: Optional[str] = None
-    tipo_membresia: Optional[str] = None 
+    tipo_membresia: Optional[str] = None
+    id_usuario: Optional[int] = None  # Relación con usuario para login 

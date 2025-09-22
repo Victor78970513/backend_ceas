@@ -12,6 +12,7 @@ class SocioRequest(BaseModel):
     estado: int
     fecha_nacimiento: Optional[str] = None
     tipo_membresia: Optional[str] = None
+    id_usuario: Optional[int] = None  # Para asociar con usuario existente
 
 class SocioResponse(BaseModel):
     id_socio: int
@@ -26,6 +27,7 @@ class SocioResponse(BaseModel):
     fecha_de_registro: Optional[str] = None
     fecha_nacimiento: Optional[str] = None
     tipo_membresia: Optional[str] = None
+    id_usuario: Optional[int] = None  # Usuario asociado
 
 class SocioUpdateRequest(BaseModel):
     id_club: Optional[int]
@@ -37,4 +39,5 @@ class SocioUpdateRequest(BaseModel):
     direccion: Optional[str]
     estado: Optional[int]
     fecha_nacimiento: Optional[str]
-    tipo_membresia: Optional[str] 
+    tipo_membresia: Optional[str]
+    id_usuario: Optional[int]  # Para actualizar asociación con usuario 
