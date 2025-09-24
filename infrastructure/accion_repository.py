@@ -11,7 +11,8 @@ class AccionRepository:
             result = db.execute(text("""
                 SELECT a.id_accion, a.id_club, a.id_socio, a.modalidad_pago, a.estado_accion, 
                        a.certificado_pdf, a.certificado_cifrado, a.fecha_emision_certificado, 
-                       a.tipo_accion, s.nombres, s.apellidos
+                       a.tipo_accion, s.nombres, s.apellidos, a.cantidad_acciones, a.precio_unitario,
+                       a.total_pago, a.metodo_pago, a.qr_data, a.fecha_venta, a.comprobante_path, a.fecha_comprobante
                 FROM accion a
                 LEFT JOIN socio s ON a.id_socio = s.id_socio
                 ORDER BY a.id_accion
@@ -28,7 +29,15 @@ class AccionRepository:
                     certificado_pdf=row[5],
                     certificado_cifrado=row[6],
                     fecha_emision_certificado=str(row[7]) if row[7] else None,
-                    tipo_accion=row[8]
+                    tipo_accion=row[8],
+                    cantidad_acciones=row[11] if row[11] else 1,
+                    precio_unitario=float(row[12]) if row[12] else 0.00,
+                    total_pago=float(row[13]) if row[13] else 0.00,
+                    metodo_pago=row[14] if row[14] else "efectivo",
+                    qr_data=row[15],
+                    fecha_venta=str(row[16]) if row[16] else None,
+                    comprobante_path=row[17],
+                    fecha_comprobante=str(row[18]) if row[18] else None
                 )
                 # Calcular nombre completo del socio
                 nombres = row[9] if row[9] else ""
@@ -46,7 +55,7 @@ class AccionRepository:
     def get_accion(self, accion_id: int) -> Optional[Accion]:
         db: Session = SessionLocal()
         try:
-            result = db.execute(text("SELECT id_accion, id_club, id_socio, modalidad_pago, estado_accion, certificado_pdf, certificado_cifrado, fecha_emision_certificado, tipo_accion FROM accion WHERE id_accion = :id_accion"), {"id_accion": accion_id}).fetchone()
+            result = db.execute(text("SELECT id_accion, id_club, id_socio, modalidad_pago, estado_accion, certificado_pdf, certificado_cifrado, fecha_emision_certificado, tipo_accion, cantidad_acciones, precio_unitario, total_pago, metodo_pago, qr_data, fecha_venta, comprobante_path, fecha_comprobante FROM accion WHERE id_accion = :id_accion"), {"id_accion": accion_id}).fetchone()
             if result:
                 return Accion(
                     id_accion=result[0],
@@ -57,7 +66,15 @@ class AccionRepository:
                     certificado_pdf=result[5],
                     certificado_cifrado=result[6],
                     fecha_emision_certificado=str(result[7]) if result[7] else None,
-                    tipo_accion=result[8]
+                    tipo_accion=result[8],
+                    cantidad_acciones=result[9] if result[9] else 1,
+                    precio_unitario=float(result[10]) if result[10] else 0.00,
+                    total_pago=float(result[11]) if result[11] else 0.00,
+                    metodo_pago=result[12] if result[12] else "efectivo",
+                    qr_data=result[13],
+                    fecha_venta=str(result[14]) if result[14] else None,
+                    comprobante_path=result[15],
+                    fecha_comprobante=str(result[16]) if result[16] else None
                 )
             return None
         except Exception as e:
@@ -71,9 +88,9 @@ class AccionRepository:
         db: Session = SessionLocal()
         try:
             result = db.execute(text('''
-                INSERT INTO accion (id_club, id_socio, modalidad_pago, estado_accion, certificado_pdf, certificado_cifrado, tipo_accion)
-                VALUES (:id_club, :id_socio, :modalidad_pago, :estado_accion, :certificado_pdf, :certificado_cifrado, :tipo_accion)
-                RETURNING id_accion, id_club, id_socio, modalidad_pago, estado_accion, certificado_pdf, certificado_cifrado, fecha_emision_certificado, tipo_accion
+                INSERT INTO accion (id_club, id_socio, modalidad_pago, estado_accion, certificado_pdf, certificado_cifrado, tipo_accion, cantidad_acciones, precio_unitario, total_pago, metodo_pago)
+                VALUES (:id_club, :id_socio, :modalidad_pago, :estado_accion, :certificado_pdf, :certificado_cifrado, :tipo_accion, :cantidad_acciones, :precio_unitario, :total_pago, :metodo_pago)
+                RETURNING id_accion, id_club, id_socio, modalidad_pago, estado_accion, certificado_pdf, certificado_cifrado, fecha_emision_certificado, tipo_accion, cantidad_acciones, precio_unitario, total_pago, metodo_pago, qr_data, fecha_venta, comprobante_path, fecha_comprobante
             '''), data.dict())
             db.commit()
             row = result.fetchone()
@@ -86,7 +103,15 @@ class AccionRepository:
                 certificado_pdf=row[5],
                 certificado_cifrado=row[6],
                 fecha_emision_certificado=str(row[7]) if row[7] else None,
-                tipo_accion=row[8]
+                tipo_accion=row[8],
+                cantidad_acciones=row[9] if row[9] else 1,
+                precio_unitario=float(row[10]) if row[10] else 0.00,
+                total_pago=float(row[11]) if row[11] else 0.00,
+                metodo_pago=row[12] if row[12] else "efectivo",
+                qr_data=row[13],
+                fecha_venta=str(row[14]) if row[14] else None,
+                comprobante_path=row[15],
+                fecha_comprobante=str(row[16]) if row[16] else None
             )
         except Exception as e:
             import logging
@@ -101,11 +126,22 @@ class AccionRepository:
         try:
             fields = []
             params = {"id_accion": accion_id}
-            for field, value in data.dict(exclude_unset=True).items():
-                fields.append(f"{field} = :{field}")
-                params[field] = value
+            
+            # Si data es un diccionario, usarlo directamente
+            if isinstance(data, dict):
+                data_dict = data
+            else:
+                # Si es un schema Pydantic, convertir a diccionario
+                data_dict = data.dict(exclude_unset=True)
+            
+            for field, value in data_dict.items():
+                if value is not None:  # Solo actualizar campos que no sean None
+                    fields.append(f"{field} = :{field}")
+                    params[field] = value
+            
             if not fields:
                 return self.get_accion(accion_id)
+            
             db.execute(text(f"UPDATE accion SET {', '.join(fields)} WHERE id_accion = :id_accion"), params)
             db.commit()
             return self.get_accion(accion_id)
