@@ -65,7 +65,7 @@ class TempPaymentService:
             logging.error(f"Error obteniendo pago temporal {temp_ref}: {str(e)}")
             return None
     
-    def confirm_temp_payment(self, temp_ref: str, comprobante_path: str) -> Dict[str, Any]:
+    def confirm_temp_payment(self, temp_ref: str, comprobante_path: str = None) -> Dict[str, Any]:
         """
         Confirma un pago temporal
         """
@@ -78,7 +78,8 @@ class TempPaymentService:
             # Actualizar estado
             temp_payment["estado"] = "confirmado"
             temp_payment["fecha_confirmacion"] = datetime.now().isoformat()
-            temp_payment["comprobante_path"] = comprobante_path
+            if comprobante_path:
+                temp_payment["comprobante_path"] = comprobante_path
             
             # Guardar cambios
             file_path = os.path.join(self.temp_payments_dir, f"{temp_ref}.json")
@@ -138,6 +139,41 @@ class TempPaymentService:
         except Exception as e:
             logging.error(f"Error limpiando pagos temporales: {str(e)}")
             return 0
+    
+    def get_all_temp_payments(self) -> list:
+        """
+        Obtiene todos los pagos temporales
+        """
+        try:
+            import glob
+            
+            patron = os.path.join(self.temp_payments_dir, "TEMP_*.json")
+            archivos = glob.glob(patron)
+            
+            pagos = []
+            for archivo in archivos:
+                try:
+                    with open(archivo, "r", encoding="utf-8") as f:
+                        temp_payment = json.load(f)
+                    
+                    # Solo incluir información básica
+                    pago_info = {
+                        "referencia": temp_payment["referencia_temporal"],
+                        "estado": temp_payment["estado"],
+                        "fecha_creacion": temp_payment["fecha_creacion"],
+                        "fecha_limite": temp_payment["fecha_limite"],
+                        "datos_pago": temp_payment["datos_pago"]
+                    }
+                    pagos.append(pago_info)
+                        
+                except Exception as e:
+                    logging.error(f"Error procesando pago temporal {archivo}: {str(e)}")
+            
+            return pagos
+            
+        except Exception as e:
+            logging.error(f"Error obteniendo pagos temporales: {str(e)}")
+            return []
     
     def get_payment_stats(self) -> Dict[str, Any]:
         """

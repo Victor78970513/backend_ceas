@@ -1,0 +1,18 @@
+{
+  "referencia_temporal": "TEMP_161B9F9B",
+  "datos_pago": {
+    "id_socio": 123,
+    "cantidad_acciones": 100,
+    "precio_unitario": 50.0,
+    "total_pago": 5000.0,
+    "metodo_pago": "transferencia_bancaria",
+    "modalidad_pago": 1,
+    "tipo_accion": "compra",
+    "id_club": 1,
+    "estado_accion": 1
+  },
+  "fecha_creacion": "2025-09-24T14:14:08.814098",
+  "fecha_limite": "2025-09-25T14:14:08.814112",
+  "estado": "pendiente",
+  "intentos": 0
+}

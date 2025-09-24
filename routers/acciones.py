@@ -9,6 +9,7 @@ from infrastructure.temp_payment_service import TempPaymentService
 from infrastructure.stripe_service import StripeService
 from infrastructure.mercadopago_service import MercadoPagoService
 from infrastructure.paypal_service import PayPalService
+from infrastructure.socio_repository import SocioRepository
 from fastapi.security import OAuth2PasswordBearer
 from typing import List
 import jwt
@@ -16,6 +17,8 @@ from config import SECRET_KEY, ALGORITHM
 import base64
 import json
 import os
+import logging
+from datetime import datetime
 
 router = APIRouter(prefix="/acciones", tags=["acciones"])
 
@@ -1505,4 +1508,237 @@ def obtener_configuracion_paypal():
         return config
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error obteniendo configuración: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Error obteniendo configuración: {str(e)}")
+
+# ==================== ENDPOINTS PARA PAGO SIMULADO (SIN SERVICIOS EXTERNOS) ====================
+
+@router.post("/simular-pago/crear-qr")
+def crear_qr_pago_simulado(request: AccionRequest, current_user=Depends(get_current_user)):
+    """
+    Crea un QR de pago simulado y datos temporales.
+    NO crea la acción aún - solo prepara el pago.
+    """
+    try:
+        # Crear servicio de pagos temporales
+        temp_payment_service = TempPaymentService()
+        
+        # Datos del pago
+        payment_data = {
+            "id_socio": request.id_socio,
+            "cantidad_acciones": 1,  # Fijo en 1 por defecto
+            "precio_unitario": request.total_pago,  # El precio unitario es igual al total
+            "total_pago": request.total_pago,
+            "metodo_pago": "transferencia_bancaria",
+            "modalidad_pago": request.modalidad_pago,
+            "tipo_accion": request.tipo_accion,
+            "id_club": request.id_club,
+            "estado_accion": 1  # Pendiente Pago
+        }
+        
+        # Crear pago temporal
+        temp_ref = temp_payment_service.create_temp_payment(payment_data)
+        payment_data["referencia_temporal"] = temp_ref
+        
+        # Generar QR de transferencia bancaria
+        qr_service = QRService()
+        qr_data = qr_service.generar_qr_transferencia_bolivia(
+            temp_ref,
+            payment_data["total_pago"],
+            payment_data["cantidad_acciones"],
+            payment_data["referencia_temporal"]
+        )
+        
+        return {
+            "mensaje": "QR de pago generado exitosamente",
+            "referencia_temporal": temp_ref,
+            "qr_data": qr_data,
+            "pago_info": {
+                "id_socio": payment_data["id_socio"],
+                "cantidad_acciones": payment_data["cantidad_acciones"],
+                "precio_unitario": payment_data["precio_unitario"],
+                "total_pago": payment_data["total_pago"],
+                "metodo_pago": payment_data["metodo_pago"],
+                "modalidad_pago": payment_data["modalidad_pago"],
+                "tipo_accion": payment_data["tipo_accion"]
+            },
+            "instrucciones": [
+                "1. Realiza la transferencia bancaria con los datos del QR",
+                "2. Envía el comprobante por WhatsApp al 12345678",
+                "3. El pago se confirmará automáticamente",
+                "4. Tu acción será activada inmediatamente"
+            ]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creando QR de pago: {str(e)}")
+
+@router.post("/simular-pago/confirmar-pago")
+def confirmar_pago_simulado(
+    referencia_temporal: str,
+    comprobante: UploadFile = File(...),
+    current_user=Depends(get_current_user)
+):
+    """
+    Confirma un pago simulado subiendo el comprobante.
+    Crea la acción automáticamente y genera el certificado.
+    """
+    try:
+        # Verificar que el pago temporal existe
+        temp_payment_service = TempPaymentService()
+        payment_data = temp_payment_service.get_temp_payment(referencia_temporal)
+        
+        if not payment_data:
+            raise HTTPException(status_code=404, detail="Pago temporal no encontrado o expirado")
+        
+        # Marcar pago como confirmado
+        temp_payment_service.confirm_temp_payment(referencia_temporal)
+        
+        # Crear acción en la BD
+        accion_repository = AccionRepository()
+        certificate_service = CertificateService()
+        
+        accion_request_data = AccionRequest(
+            id_club=payment_data["id_club"],
+            id_socio=payment_data["id_socio"],
+            modalidad_pago=payment_data["modalidad_pago"],
+            estado_accion=4,  # Completado
+            certificado_pdf=None,
+            certificado_cifrado=False,
+            tipo_accion=payment_data["tipo_accion"],
+            cantidad_acciones=payment_data["cantidad_acciones"],
+            precio_unitario=payment_data["precio_unitario"],
+            total_pago=payment_data["total_pago"],
+            metodo_pago=payment_data["metodo_pago"]
+        )
+        
+        accion_creada = accion_repository.create_accion(accion_request_data)
+        
+        # Generar certificado
+        socio_repository = SocioRepository()
+        socio = socio_repository.get_socio(accion_creada.id_socio)
+        socio_titular_nombre = f"{socio.nombres} {socio.apellidos}" if socio else f"Socio {accion_creada.id_socio}"
+
+        certificado_data = {
+            'id_accion': accion_creada.id_accion,
+            'id_socio': accion_creada.id_socio,
+            'tipo_accion': accion_creada.tipo_accion,
+            'cantidad_acciones': accion_creada.cantidad_acciones,
+            'precio_unitario': accion_creada.precio_unitario,
+            'total_pago': accion_creada.total_pago,
+            'metodo_pago': accion_creada.metodo_pago,
+            'socio_titular': socio_titular_nombre,
+            'modalidad_pago_info': f"Modalidad {accion_creada.modalidad_pago}"
+        }
+        
+        # Generar certificado completo (original + cifrado)
+        certificado_info = certificate_service.generar_certificado_completo(certificado_data, accion_creada.id_socio)
+        
+        # Actualizar acción con certificado
+        accion_repository.update_accion(accion_creada.id_accion, {
+            "certificado_pdf": certificado_info["certificado_original"],
+            "certificado_cifrado": True,
+            "fecha_emision_certificado": datetime.now().isoformat()
+        })
+        
+        # Limpiar pago temporal
+        temp_payment_service.delete_temp_payment(referencia_temporal)
+        
+        return {
+            "mensaje": "Pago confirmado y acción creada exitosamente",
+            "accion": {
+                "id_accion": accion_creada.id_accion,
+                "id_socio": accion_creada.id_socio,
+                "cantidad_acciones": accion_creada.cantidad_acciones,
+                "precio_unitario": accion_creada.precio_unitario,
+                "total_pago": accion_creada.total_pago,
+                "metodo_pago": accion_creada.metodo_pago,
+                "estado_accion": 4,
+                "estado_nombre": "Completado",
+                "fecha_creacion": datetime.now().isoformat()
+            },
+            "certificado": {
+                "disponible": True,
+                "ruta": certificado_info["certificado_original"],
+                "fecha_generacion": certificado_info["fecha_generacion"]
+            },
+            "comprobante": {
+                "nombre": comprobante.filename,
+                "tamaño": comprobante.size,
+                "tipo": comprobante.content_type
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error confirmando pago: {str(e)}")
+
+@router.get("/simular-pago/estado/{referencia_temporal}")
+def obtener_estado_pago_simulado(referencia_temporal: str, current_user=Depends(get_current_user)):
+    """
+    Obtiene el estado de un pago simulado
+    """
+    try:
+        temp_payment_service = TempPaymentService()
+        payment_data = temp_payment_service.get_temp_payment(referencia_temporal)
+        
+        if not payment_data:
+            raise HTTPException(status_code=404, detail="Pago temporal no encontrado o expirado")
+        
+        return {
+            "referencia_temporal": referencia_temporal,
+            "estado": payment_data["estado"],
+            "fecha_creacion": payment_data["fecha_creacion"],
+            "fecha_expiracion": payment_data["fecha_expiracion"],
+            "pago_info": {
+                "id_socio": payment_data["id_socio"],
+                "cantidad_acciones": payment_data["cantidad_acciones"],
+                "precio_unitario": payment_data["precio_unitario"],
+                "total_pago": payment_data["total_pago"],
+                "metodo_pago": payment_data["metodo_pago"]
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error obteniendo estado del pago: {str(e)}")
+
+@router.get("/simular-pago/pagos-temporales")
+def listar_pagos_temporales(current_user=Depends(get_current_user)):
+    """
+    Lista todos los pagos temporales (solo administradores)
+    """
+    try:
+        # Verificar que es administrador
+        if current_user["rol"] != 1:
+            raise HTTPException(status_code=403, detail="Solo administradores pueden ver pagos temporales")
+        
+        temp_payment_service = TempPaymentService()
+        pagos = temp_payment_service.get_all_temp_payments()
+        
+        return {
+            "pagos_temporales": pagos,
+            "total": len(pagos)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listando pagos temporales: {str(e)}")
+
+@router.delete("/simular-pago/limpiar-pagos")
+def limpiar_pagos_temporales(current_user=Depends(get_current_user)):
+    """
+    Limpia pagos temporales expirados (solo administradores)
+    """
+    try:
+        # Verificar que es administrador
+        if current_user["rol"] != 1:
+            raise HTTPException(status_code=403, detail="Solo administradores pueden limpiar pagos temporales")
+        
+        temp_payment_service = TempPaymentService()
+        temp_payment_service.cleanup_expired_payments()
+        
+        return {
+            "mensaje": "Pagos temporales expirados limpiados exitosamente"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error limpiando pagos temporales: {str(e)}")
+
+# ==================== ENDPOINTS PARA PAGO SIMULADO (SIN SERVICIOS EXTERNOS) ==================== 

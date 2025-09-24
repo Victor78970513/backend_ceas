@@ -118,6 +118,44 @@ class QRService:
         else:
             raise ValueError(f"Método de pago no soportado: {metodo_pago}")
     
+    def generar_qr_transferencia_bolivia(self, referencia_temporal: str, monto: float, cantidad_acciones: int, concepto: str) -> Dict[str, Any]:
+        """
+        Genera QR específico para transferencias bancarias en Bolivia
+        """
+        datos_transferencia = {
+            "banco": "Banco Nacional de Bolivia",
+            "cuenta": "1234567890",
+            "titular": "Club CEAS",
+            "monto": monto,
+            "concepto": f"Compra de {cantidad_acciones} acciones - {concepto}",
+            "referencia": referencia_temporal,
+            "fecha_limite": (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S"),
+            "telefono_contacto": "12345678",
+            "email_contacto": "contacto@clubceas.com"
+        }
+        
+        try:
+            # Generar QR
+            qr_code = qrcode.make(json.dumps(datos_transferencia, ensure_ascii=False))
+            qr_path = os.path.join(self.qr_codes_dir, f"temp_{referencia_temporal}.png")
+            qr_code.save(qr_path)
+            
+            logging.info(f"QR generado exitosamente para referencia {referencia_temporal}")
+            
+            return {
+                "tipo": "transferencia_bancaria_bolivia",
+                "qr_data": datos_transferencia,
+                "instrucciones": [
+                    "1. Realiza la transferencia bancaria con los datos mostrados",
+                    "2. Envía el comprobante por WhatsApp al 12345678",
+                    "3. El pago se confirmará automáticamente",
+                    "4. Tu acción será activada inmediatamente"
+                ]
+            }
+        except Exception as e:
+            logging.error(f"Error generando QR para referencia {referencia_temporal}: {str(e)}")
+            raise Exception(f"Error generando código QR: {str(e)}")
+    
     def limpiar_qr_antiguos(self, dias_antiguedad: int = 7):
         """
         Limpia códigos QR antiguos para liberar espacio
