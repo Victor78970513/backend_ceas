@@ -12,17 +12,16 @@ class PersonalRequest(BaseModel):
     estado: bool = True
 
 class PersonalResponse(BaseModel):
-    id_personal: int
-    id_club: int
-    nombres: str
-    apellidos: str
-    cargo: int
-    fecha_ingreso: Optional[str] = None
+    id_empleado: int
+    nombre_completo: str
+    cargo: str
+    departamento: str
+    estado: str
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+    fecha_contratacion: Optional[str] = None
     salario: float
-    correo: Optional[str] = None
-    departamento: Optional[str] = None
-    estado: bool
-    nombre_cargo: Optional[str] = None
+    foto: Optional[str] = None
 
 class PersonalUpdateRequest(BaseModel):
     id_club: Optional[int]

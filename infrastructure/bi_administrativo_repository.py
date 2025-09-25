@@ -92,7 +92,7 @@ class BIAdministrativoRepository:
                     COALESCE(SUM(CASE WHEN mf.tipo_movimiento = 'INGRESO' THEN mf.monto ELSE 0 END), 0) as ingresos,
                     COALESCE(SUM(CASE WHEN mf.tipo_movimiento = 'EGRESO' THEN mf.monto ELSE 0 END), 0) as egresos,
                     COUNT(*) as total_movimientos
-                FROM movimientofinanciero mf
+                FROM movimiento_financiero mf
                 {where_clause}
             """), params).fetchone()
 
@@ -188,7 +188,7 @@ class BIAdministrativoRepository:
                     COUNT(DISTINCT s.id_socio) as socios_activos,
                     COUNT(DISTINCT a.id_accion) as acciones_vendidas
                 FROM club c
-                LEFT JOIN movimientofinanciero mf ON c.id_club = mf.id_club 
+                LEFT JOIN movimiento_financiero mf ON c.id_club = mf.id_club 
                     AND mf.fecha >= :fecha_inicio AND mf.fecha < :fecha_fin
                 LEFT JOIN socio s ON c.id_club = s.id_club AND s.estado = 1
                 LEFT JOIN accion a ON c.id_club = a.id_club
@@ -249,7 +249,7 @@ class BIAdministrativoRepository:
                 FROM socio s
                 LEFT JOIN club c ON s.id_club = c.id_club
                 LEFT JOIN accion a ON s.id_socio = a.id_socio
-                LEFT JOIN pagoaccion pa ON a.id_accion = pa.id_accion
+                LEFT JOIN pago_accion pa ON a.id_accion = pa.id_accion
                 {where_clause}
                 GROUP BY s.id_socio, s.nombres, s.apellidos, c.nombre_club, s.fecha_de_registro
                 ORDER BY total_invertido DESC
@@ -298,9 +298,18 @@ class BIAdministrativoRepository:
                     END as categoria,
                     SUM(mf.monto) as monto_total,
                     COUNT(*) as cantidad_movimientos
-                FROM movimientofinanciero mf
+                FROM movimiento_financiero mf
                 {where_clause}
-                GROUP BY categoria
+                GROUP BY 
+                    CASE
+                        WHEN mf.descripcion ILIKE '%cuota%' THEN 'Cuotas'
+                        WHEN mf.descripcion ILIKE '%donación%' THEN 'Donaciones'
+                        WHEN mf.descripcion ILIKE '%evento%' THEN 'Eventos'
+                        WHEN mf.descripcion ILIKE '%servicio%' THEN 'Servicios'
+                        WHEN mf.descripcion ILIKE '%compra%' THEN 'Compras'
+                        WHEN mf.descripcion ILIKE '%material%' THEN 'Materiales'
+                        ELSE 'Otros'
+                    END
                 ORDER BY monto_total DESC
             """), params).fetchall()
 
@@ -387,7 +396,7 @@ class BIAdministrativoRepository:
                     COALESCE(SUM(CASE WHEN mf.tipo_movimiento = 'INGRESO' THEN mf.monto ELSE 0 END), 0) as ingresos,
                     COALESCE(SUM(CASE WHEN mf.tipo_movimiento = 'EGRESO' THEN mf.monto ELSE 0 END), 0) as egresos,
                     COUNT(*) as movimientos
-                FROM movimientofinanciero mf
+                FROM movimiento_financiero mf
                 {where_clause}
                 GROUP BY EXTRACT(MONTH FROM mf.fecha)
                 ORDER BY mes

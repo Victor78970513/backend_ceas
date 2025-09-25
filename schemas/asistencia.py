@@ -11,13 +11,13 @@ class AsistenciaRequest(BaseModel):
 
 class AsistenciaResponse(BaseModel):
     id_asistencia: int
-    id_personal: int
+    id_empleado: int
+    nombre_empleado: str
     fecha: str
-    hora_ingreso: Optional[str] = None
+    estado: str
+    hora_entrada: Optional[str] = None
     hora_salida: Optional[str] = None
     observaciones: Optional[str] = None
-    estado: Optional[str] = None
-    nombre_empleado: Optional[str] = None
 
 class AsistenciaUpdateRequest(BaseModel):
     hora_salida: Optional[str]

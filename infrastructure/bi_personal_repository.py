@@ -149,9 +149,9 @@ class BIPersonalRepository:
             result = db.execute(text(f"""
                 SELECT 
                     COUNT(*) as total_registros,
-                    COUNT(CASE WHEN a.estado = 'Presente' THEN 1 END) as asistencias_completas,
-                    COUNT(CASE WHEN a.estado = 'Tardanza' THEN 1 END) as tardanzas,
-                    COUNT(CASE WHEN a.estado = 'Ausente' THEN 1 END) as ausencias,
+                    COUNT(CASE WHEN a.estado = 'presente' THEN 1 END) as asistencias_completas,
+                    COUNT(CASE WHEN a.estado = 'tardanza' THEN 1 END) as tardanzas,
+                    COUNT(CASE WHEN a.estado = 'ausente' THEN 1 END) as ausencias,
                     AVG(CASE 
                         WHEN a.hora_ingreso IS NOT NULL AND a.hora_salida IS NOT NULL 
                         THEN EXTRACT(EPOCH FROM (a.hora_salida::time - a.hora_ingreso::time))/3600
@@ -206,8 +206,8 @@ class BIPersonalRepository:
                     p.id_personal,
                     CONCAT(p.nombres, ' ', p.apellidos) as nombre_empleado,
                     COUNT(*) as total_asistencias,
-                    COUNT(CASE WHEN a.estado = 'Tardanza' THEN 1 END) as tardanzas,
-                    COUNT(CASE WHEN a.estado = 'Ausente' THEN 1 END) as ausencias,
+                    COUNT(CASE WHEN a.estado = 'tardanza' THEN 1 END) as tardanzas,
+                    COUNT(CASE WHEN a.estado = 'ausente' THEN 1 END) as ausencias,
                     AVG(CASE 
                         WHEN a.hora_ingreso IS NOT NULL AND a.hora_salida IS NOT NULL 
                         THEN EXTRACT(EPOCH FROM (a.hora_salida::time - a.hora_ingreso::time))/3600
@@ -251,9 +251,9 @@ class BIPersonalRepository:
                     COALESCE(p.departamento, 'Sin departamento') as departamento,
                     COUNT(DISTINCT p.id_personal) as total_empleados,
                     COUNT(*) as total_asistencias,
-                    COUNT(CASE WHEN UPPER(a.estado) IN ('PRESENTE', 'HORAS_EXTRAS') THEN 1 END) as asistencias,
-                    COUNT(CASE WHEN UPPER(a.estado) IN ('TARDANZA', 'RETRASO') THEN 1 END) as tardanzas,
-                    COUNT(CASE WHEN UPPER(a.estado) IN ('FALTANDO', 'AUSENTE') THEN 1 END) as ausencias
+                    COUNT(CASE WHEN a.estado = 'presente' THEN 1 END) as asistencias,
+                    COUNT(CASE WHEN a.estado = 'tardanza' THEN 1 END) as tardanzas,
+                    COUNT(CASE WHEN a.estado = 'ausente' THEN 1 END) as ausencias
                 FROM asistencia a
                 LEFT JOIN personal p ON a.id_personal = p.id_personal
                 WHERE a.fecha >= :fecha_inicio AND a.fecha < :fecha_fin
@@ -270,7 +270,8 @@ class BIPersonalRepository:
                 departamentos.append({
                     "departamento": row[0],
                     "total_empleados": row[1],
-                    "promedio_asistencia": round(promedio, 2),
+                    "total_asistencias": row[2] or 0,
+                    "porcentaje_asistencia": round(promedio, 2),
                     "total_tardanzas": row[4] or 0,
                     "total_ausencias": row[5] or 0
                 })
