@@ -13,6 +13,8 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 
+# Almacenamiento local únicamente
+
 class CertificateService:
     def __init__(self):
         self.certificados_dir = "certificados"
@@ -25,9 +27,12 @@ class CertificateService:
     
     def generar_certificado_pdf(self, accion_data: Dict[str, Any]) -> str:
         """
-        Genera certificado PDF para una acción
+        Genera certificado PDF para una acción usando la plantilla de CEAS
         """
         try:
+            from infrastructure.socio_repository import SocioRepository
+            from infrastructure.pdf_service import PDFService
+            
             # Crear nombre del archivo
             id_accion = accion_data.get('id_accion')
             id_socio = accion_data.get('id_socio')
@@ -35,81 +40,45 @@ class CertificateService:
             filename = f"certificado_accion_{id_accion}_{id_socio}_{fecha_actual}.pdf"
             filepath = os.path.join(self.originales_dir, filename)
             
-            # Crear documento PDF
-            doc = SimpleDocTemplate(filepath, pagesize=A4)
-            styles = getSampleStyleSheet()
-            story = []
+            # Obtener datos del socio
+            socio_repository = SocioRepository()
+            socio = socio_repository.get_socio(id_socio)
             
-            # Estilo personalizado para el título
-            title_style = ParagraphStyle(
-                'CustomTitle',
-                parent=styles['Heading1'],
-                fontSize=24,
-                spaceAfter=30,
-                alignment=1,  # Centrado
-                textColor=colors.darkblue
+            if not socio:
+                raise Exception(f"Socio con ID {id_socio} no encontrado")
+            
+            # Preparar datos para el PDF
+            accion_data_formatted = {
+                'id_accion': id_accion,
+                'id_socio': id_socio,
+                'tipo_accion': accion_data.get('tipo_accion', 'compra'),
+                'fecha_emision_certificado': datetime.now().isoformat()
+            }
+            
+            socio_data = {
+                'nombre': socio.nombres,
+                'apellido': socio.apellidos,
+                'ci_nit': socio.ci_nit
+            }
+            
+            modalidad_data = {
+                'precio_renovacion': accion_data.get('total_pago', 0.00)
+            }
+            
+            # Generar PDF usando el servicio con plantilla
+            pdf_service = PDFService()
+            pdf_result = pdf_service.generar_certificado_accion(
+                accion_data_formatted, socio_data, modalidad_data
             )
             
-            # Estilo para subtítulos
-            subtitle_style = ParagraphStyle(
-                'CustomSubtitle',
-                parent=styles['Heading2'],
-                fontSize=16,
-                spaceAfter=15,
-                textColor=colors.darkgreen
-            )
+            # El servicio retorna un diccionario con el PDF cifrado
+            pdf_content = pdf_result['pdf_cifrado']
             
-            # Estilo para texto normal
-            normal_style = ParagraphStyle(
-                'CustomNormal',
-                parent=styles['Normal'],
-                fontSize=12,
-                spaceAfter=10
-            )
+            # Guardar el PDF generado
+            with open(filepath, 'wb') as f:
+                f.write(pdf_content)
             
-            # Título del certificado
-            story.append(Paragraph("CERTIFICADO DE ACCIÓN", title_style))
-            story.append(Spacer(1, 20))
-            
-            # Información del club
-            story.append(Paragraph("CLUB DE EMPRENDEDORES Y ACCIONISTAS", subtitle_style))
-            story.append(Paragraph("CEAS - Bolivia", normal_style))
-            story.append(Spacer(1, 20))
-            
-            # Información de la acción
-            story.append(Paragraph("INFORMACIÓN DE LA ACCIÓN", subtitle_style))
-            story.append(Paragraph(f"<b>Número de Acción:</b> {id_accion}", normal_style))
-            story.append(Paragraph(f"<b>Tipo de Acción:</b> {accion_data.get('tipo_accion', 'Compra')}", normal_style))
-            story.append(Paragraph(f"<b>Cantidad de Acciones:</b> {accion_data.get('cantidad_acciones', 1)}", normal_style))
-            story.append(Paragraph(f"<b>Precio Unitario:</b> Bs. {accion_data.get('precio_unitario', 0.00):.2f}", normal_style))
-            story.append(Paragraph(f"<b>Total Pagado:</b> Bs. {accion_data.get('total_pago', 0.00):.2f}", normal_style))
-            story.append(Paragraph(f"<b>Fecha de Compra:</b> {datetime.now().strftime('%d/%m/%Y')}", normal_style))
-            story.append(Spacer(1, 20))
-            
-            # Información del socio
-            story.append(Paragraph("INFORMACIÓN DEL SOCIO", subtitle_style))
-            story.append(Paragraph(f"<b>Nombre Completo:</b> {accion_data.get('socio_titular', 'No especificado')}", normal_style))
-            story.append(Paragraph(f"<b>ID Socio:</b> {id_socio}", normal_style))
-            story.append(Spacer(1, 20))
-            
-            # Información de pago
-            story.append(Paragraph("INFORMACIÓN DE PAGO", subtitle_style))
-            story.append(Paragraph(f"<b>Método de Pago:</b> {accion_data.get('metodo_pago', 'No especificado')}", normal_style))
-            story.append(Paragraph(f"<b>Modalidad de Pago:</b> {accion_data.get('modalidad_pago_info', 'No especificado')}", normal_style))
-            story.append(Spacer(1, 20))
-            
-            # Firma y sello
-            story.append(Spacer(1, 30))
-            story.append(Paragraph("_________________________", normal_style))
-            story.append(Paragraph("Firma del Administrador", normal_style))
-            story.append(Spacer(1, 20))
-            story.append(Paragraph("Este certificado es válido y auténtico", normal_style))
-            story.append(Paragraph(f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", normal_style))
-            
-            # Construir PDF
-            doc.build(story)
-            
-            logging.info(f"Certificado PDF generado exitosamente: {filepath}")
+            logging.info(f"Certificado PDF generado exitosamente usando plantilla CEAS: {filepath}")
             return filepath
             
         except Exception as e:
@@ -158,6 +127,127 @@ class CertificateService:
         except Exception as e:
             logging.error(f"Error cifrando certificado: {str(e)}")
             raise Exception(f"Error cifrando certificado: {str(e)}")
+
+    def generar_certificado_falso(self, archivo_path: str, usuario_id: int) -> str:
+        """
+        Genera un archivo PDF falso que muestra contenido cifrado para usuarios no autorizados
+        """
+        try:
+            from reportlab.lib.pagesizes import letter, A4
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib import colors
+            import io
+            
+            # Leer el archivo original para cifrarlo
+            with open(archivo_path, 'rb') as file:
+                file_data = file.read()
+            
+            # Generar clave basada en el ID del usuario
+            password = str(usuario_id).encode()
+            salt = b'ceas_certificate_salt_2024'
+            
+            # Derivar clave usando PBKDF2
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=salt,
+                iterations=100000,
+            )
+            key = base64.urlsafe_b64encode(kdf.derive(password))
+            
+            # Cifrar el archivo
+            fernet = Fernet(key)
+            encrypted_data = fernet.encrypt(file_data)
+            
+            # Convertir datos cifrados a base64 para mostrar
+            encrypted_b64 = base64.b64encode(encrypted_data).decode('utf-8')
+            
+            # Crear nombre del archivo falso
+            base_name = os.path.basename(archivo_path)
+            name_without_ext = os.path.splitext(base_name)[0]
+            fake_filename = f"{name_without_ext}_cifrado_{usuario_id}.pdf"
+            fake_path = os.path.join(self.cifrados_dir, fake_filename)
+            
+            # Crear PDF falso que muestre el contenido cifrado
+            doc = SimpleDocTemplate(fake_path, pagesize=A4)
+            styles = getSampleStyleSheet()
+            
+            # Estilo para el contenido cifrado
+            cipher_style = ParagraphStyle(
+                'CipherText',
+                parent=styles['Normal'],
+                fontSize=8,
+                fontName='Courier',
+                textColor=colors.red,
+                leading=10
+            )
+            
+            # Contenido del PDF falso
+            story = []
+            
+            # Título
+            title = Paragraph("🔒 CERTIFICADO CIFRADO - ACCESO DENEGADO", styles['Title'])
+            story.append(title)
+            story.append(Spacer(1, 20))
+            
+            # Mensaje de advertencia
+            warning = Paragraph(
+                "<b>⚠️ ADVERTENCIA:</b><br/>"
+                "Este certificado está cifrado y solo puede ser visualizado por el propietario autorizado. "
+                "El contenido que ves a continuación son datos cifrados que no pueden ser leídos sin la clave correspondiente.",
+                styles['Normal']
+            )
+            story.append(warning)
+            story.append(Spacer(1, 20))
+            
+            # Información del cifrado
+            info = Paragraph(
+                f"<b>Información del cifrado:</b><br/>"
+                f"• Usuario ID: {usuario_id}<br/>"
+                f"• Algoritmo: AES-256<br/>"
+                f"• Salt: ceas_certificate_salt_2024<br/>"
+                f"• Iteraciones PBKDF2: 100,000<br/>"
+                f"• Tamaño original: {len(file_data)} bytes<br/>"
+                f"• Tamaño cifrado: {len(encrypted_data)} bytes",
+                styles['Normal']
+            )
+            story.append(info)
+            story.append(Spacer(1, 20))
+            
+            # Contenido cifrado (dividido en líneas para mejor visualización)
+            story.append(Paragraph("<b>Contenido cifrado (Base64):</b>", styles['Heading3']))
+            story.append(Spacer(1, 10))
+            
+            # Dividir el contenido cifrado en líneas de 80 caracteres
+            lines = [encrypted_b64[i:i+80] for i in range(0, len(encrypted_b64), 80)]
+            for line in lines[:50]:  # Mostrar solo las primeras 50 líneas para no sobrecargar
+                cipher_line = Paragraph(line, cipher_style)
+                story.append(cipher_line)
+            
+            if len(lines) > 50:
+                story.append(Spacer(1, 10))
+                story.append(Paragraph(f"... y {len(lines) - 50} líneas más", styles['Normal']))
+            
+            story.append(Spacer(1, 20))
+            
+            # Pie de página
+            footer = Paragraph(
+                "Este documento fue generado automáticamente por el sistema CEAS.<br/>"
+                "Para acceder al certificado original, contacta al administrador del sistema.",
+                styles['Normal']
+            )
+            story.append(footer)
+            
+            # Construir el PDF
+            doc.build(story)
+            
+            logging.info(f"Certificado falso generado exitosamente: {fake_path}")
+            return fake_path
+            
+        except Exception as e:
+            logging.error(f"Error generando certificado falso: {str(e)}")
+            raise Exception(f"Error generando certificado falso: {str(e)}")
     
     def descifrar_certificado(self, archivo_cifrado_path: str, usuario_id: int) -> bytes:
         """
@@ -193,7 +283,7 @@ class CertificateService:
     
     def generar_certificado_completo(self, accion_data: Dict[str, Any], usuario_id: int) -> Dict[str, str]:
         """
-        Genera certificado PDF y lo cifra
+        Genera certificado PDF y lo cifra usando almacenamiento local
         """
         try:
             # 1. Generar certificado PDF original
@@ -202,11 +292,21 @@ class CertificateService:
             # 2. Cifrar certificado
             certificado_cifrado_path = self.cifrar_certificado(certificado_path, usuario_id)
             
-            return {
-                "certificado_original": certificado_path,
-                "certificado_cifrado": certificado_cifrado_path,
-                "fecha_generacion": datetime.now().isoformat()
+            # Obtener solo el nombre del archivo para la BD
+            certificado_filename = os.path.basename(certificado_path)
+            certificado_cifrado_filename = os.path.basename(certificado_cifrado_path)
+            
+            result = {
+                "certificado_original": certificado_filename,  # Solo el nombre del archivo
+                "certificado_original_path": certificado_path,  # Ruta completa para referencia
+                "certificado_cifrado": certificado_cifrado_filename,  # Solo el nombre del archivo
+                "certificado_cifrado_path": certificado_cifrado_path,  # Ruta completa para referencia
+                "fecha_generacion": datetime.now().isoformat(),
+                "almacenamiento": "local"
             }
+            
+            logging.info("✅ Certificados generados y almacenados localmente")
+            return result
             
         except Exception as e:
             logging.error(f"Error en generación completa de certificado: {str(e)}")

@@ -705,41 +705,97 @@ def servir_qr(filename: str):
         raise HTTPException(status_code=500, detail=f"Error sirviendo QR: {str(e)}")
 
 @router.get("/certificados/{filename}")
-def servir_certificado(filename: str):
+def servir_certificado(filename: str, current_user=Depends(get_current_user)):
     """
-    Sirve certificados para descarga
+    Sirve certificados para descarga con validación de autorización.
+    Si el usuario es el socio propietario, retorna PDF original.
+    Si no es el propietario, retorna PDF cifrado.
     """
     try:
         import os
+        from infrastructure.accion_repository import AccionRepository
+        from infrastructure.certificate_service import CertificateService
         
         # Validar que el archivo es un certificado
         if not filename.startswith('certificado_accion_'):
             raise HTTPException(status_code=403, detail="Archivo no autorizado")
         
-        # Buscar en directorios de certificados
-        rutas_posibles = [
-            os.path.join("certificados", "originales", filename),
-            os.path.join("certificados", "cifrados", filename)
-        ]
+        # Extraer ID de acción del nombre del archivo
+        # Formato: certificado_accion_{id_accion}_{id_socio}_{fecha}.pdf
+        parts = filename.replace('.pdf', '').split('_')
+        if len(parts) < 4:
+            raise HTTPException(status_code=400, detail="Formato de archivo inválido")
         
-        archivo_encontrado = None
-        for ruta in rutas_posibles:
-            if os.path.exists(ruta):
-                archivo_encontrado = ruta
-                break
+        try:
+            id_accion = int(parts[2])
+            id_socio_propietario = int(parts[3])
+        except (ValueError, IndexError):
+            raise HTTPException(status_code=400, detail="No se pudo extraer ID de acción del archivo")
         
-        if not archivo_encontrado:
-            raise HTTPException(status_code=404, detail="Certificado no encontrado")
+        # Verificar que la acción existe
+        accion_repository = AccionRepository()
+        accion = accion_repository.get_accion(id_accion)
         
-        # Determinar tipo de archivo
-        media_type = "application/pdf" if filename.endswith('.pdf') else "application/octet-stream"
+        if not accion:
+            raise HTTPException(status_code=404, detail="Acción no encontrada")
+        
+        # Verificar autorización
+        es_propietario = False
+        
+        # Si el usuario es admin, puede ver cualquier certificado
+        if current_user["rol"] == 1:  # Admin
+            es_propietario = True
+        else:
+            # Si el usuario es socio, verificar si es el propietario
+            if current_user["rol"] == 4:  # Socio
+                # Obtener el socio del usuario actual
+                from infrastructure.socio_repository import SocioRepository
+                socio_repository = SocioRepository()
+                socio = socio_repository.get_socio_by_usuario_id(current_user["id_usuario"])
+                
+                if socio and socio.id_socio == id_socio_propietario:
+                    es_propietario = True
+        
+        # Determinar qué archivo servir
+        if es_propietario:
+            # Usuario autorizado: servir PDF original
+            archivo_path = os.path.join("certificados", "originales", filename)
+            media_type = "application/pdf"
+            
+            if not os.path.exists(archivo_path):
+                raise HTTPException(status_code=404, detail="Certificado original no encontrado")
+                
+        else:
+            # Usuario no autorizado: servir PDF falso con contenido cifrado
+            # Buscar archivo cifrado falso
+            base_name = filename.replace('.pdf', '')
+            archivo_falso = f"{base_name}_cifrado_{current_user['id_usuario']}.pdf"
+            archivo_path = os.path.join("certificados", "cifrados", archivo_falso)
+            
+            if not os.path.exists(archivo_path):
+                # Si no existe el archivo falso específico, generar uno
+                certificate_service = CertificateService()
+                
+                # Generar archivo falso para este usuario
+                archivo_original = os.path.join("certificados", "originales", filename)
+                if os.path.exists(archivo_original):
+                    archivo_path = certificate_service.generar_certificado_falso(
+                        archivo_original, current_user["id_usuario"]
+                    )
+                else:
+                    raise HTTPException(status_code=404, detail="Certificado original no encontrado")
+            
+            media_type = "application/pdf"
+            filename = archivo_falso
         
         return FileResponse(
-            path=archivo_encontrado,
+            path=archivo_path,
             filename=filename,
             media_type=media_type
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error sirviendo certificado: {str(e)}")
 
@@ -1528,10 +1584,10 @@ def crear_qr_pago_simulado(request: AccionRequest, current_user=Depends(get_curr
             "cantidad_acciones": 1,  # Fijo en 1 por defecto
             "precio_unitario": request.total_pago,  # El precio unitario es igual al total
             "total_pago": request.total_pago,
-            "metodo_pago": "transferencia_bancaria",
+            "metodo_pago": "transferencia",
             "modalidad_pago": request.modalidad_pago,
             "tipo_accion": request.tipo_accion,
-            "id_club": request.id_club,
+            "id_club": request.id_club or 1,  # Por defecto 1 si no viene
             "estado_accion": 1  # Pendiente Pago
         }
         
@@ -1545,7 +1601,7 @@ def crear_qr_pago_simulado(request: AccionRequest, current_user=Depends(get_curr
             temp_ref,
             payment_data["total_pago"],
             payment_data["cantidad_acciones"],
-            payment_data["referencia_temporal"]
+            temp_ref
         )
         
         return {
@@ -1575,11 +1631,10 @@ def crear_qr_pago_simulado(request: AccionRequest, current_user=Depends(get_curr
 @router.post("/simular-pago/confirmar-pago")
 def confirmar_pago_simulado(
     referencia_temporal: str,
-    comprobante: UploadFile = File(...),
     current_user=Depends(get_current_user)
 ):
     """
-    Confirma un pago simulado subiendo el comprobante.
+    Confirma un pago simulado sin subir comprobante.
     Crea la acción automáticamente y genera el certificado.
     """
     try:
@@ -1590,6 +1645,10 @@ def confirmar_pago_simulado(
         if not payment_data:
             raise HTTPException(status_code=404, detail="Pago temporal no encontrado o expirado")
         
+        # Extraer datos del pago (están en datos_pago)
+        pago_data = payment_data.get("datos_pago", payment_data)
+        
+        
         # Marcar pago como confirmado
         temp_payment_service.confirm_temp_payment(referencia_temporal)
         
@@ -1598,20 +1657,43 @@ def confirmar_pago_simulado(
         certificate_service = CertificateService()
         
         accion_request_data = AccionRequest(
-            id_club=payment_data["id_club"],
-            id_socio=payment_data["id_socio"],
-            modalidad_pago=payment_data["modalidad_pago"],
-            estado_accion=4,  # Completado
+            id_club=pago_data.get("id_club", 1),  # Por defecto 1
+            id_socio=pago_data["id_socio"],
+            modalidad_pago=pago_data["modalidad_pago"],
+            estado_accion=2,  # Aprobada
             certificado_pdf=None,
             certificado_cifrado=False,
-            tipo_accion=payment_data["tipo_accion"],
-            cantidad_acciones=payment_data["cantidad_acciones"],
-            precio_unitario=payment_data["precio_unitario"],
-            total_pago=payment_data["total_pago"],
-            metodo_pago=payment_data["metodo_pago"]
+            tipo_accion=pago_data["tipo_accion"],
+            cantidad_acciones=pago_data["cantidad_acciones"],
+            precio_unitario=pago_data["precio_unitario"],
+            total_pago=pago_data["total_pago"],
+            metodo_pago=pago_data["metodo_pago"]
         )
         
         accion_creada = accion_repository.create_accion(accion_request_data)
+        
+        # Crear registro en pago_accion
+        from infrastructure.pago_repository import PagoRepository
+        from schemas.pago import PagoRequest as PagoSchemaRequest
+        
+        pago_repository = PagoRepository()
+        
+        # Mapear metodo_pago a tipo_pago (1=efectivo, 2=transferencia, 3=tarjeta)
+        tipo_pago_map = {
+            "efectivo": 1,
+            "transferencia": 2,
+            "tarjeta": 3
+        }
+        
+        pago_request_data = PagoSchemaRequest(
+            id_accion=accion_creada.id_accion,
+            monto=pago_data["total_pago"],
+            tipo_pago=tipo_pago_map.get(pago_data["metodo_pago"], 2),  # Por defecto transferencia
+            estado_pago=2,  # Pagado
+            observaciones=f"Pago simulado - Referencia: {referencia_temporal}"
+        )
+        
+        pago_creado = pago_repository.create_pago(pago_request_data)
         
         # Generar certificado
         socio_repository = SocioRepository()
@@ -1652,19 +1734,23 @@ def confirmar_pago_simulado(
                 "precio_unitario": accion_creada.precio_unitario,
                 "total_pago": accion_creada.total_pago,
                 "metodo_pago": accion_creada.metodo_pago,
-                "estado_accion": 4,
-                "estado_nombre": "Completado",
+                "estado_accion": 2,
+                "estado_nombre": "Aprobada",
                 "fecha_creacion": datetime.now().isoformat()
+            },
+            "pago": {
+                "id_pago": pago_creado.id_pago,
+                "id_accion": pago_creado.id_accion,
+                "monto": pago_creado.monto,
+                "tipo_pago": pago_creado.tipo_pago,
+                "estado_pago": pago_creado.estado_pago,
+                "fecha_pago": pago_creado.fecha_de_pago,
+                "observaciones": pago_creado.observaciones
             },
             "certificado": {
                 "disponible": True,
                 "ruta": certificado_info["certificado_original"],
                 "fecha_generacion": certificado_info["fecha_generacion"]
-            },
-            "comprobante": {
-                "nombre": comprobante.filename,
-                "tamaño": comprobante.size,
-                "tipo": comprobante.content_type
             }
         }
         
@@ -1683,17 +1769,20 @@ def obtener_estado_pago_simulado(referencia_temporal: str, current_user=Depends(
         if not payment_data:
             raise HTTPException(status_code=404, detail="Pago temporal no encontrado o expirado")
         
+        # Extraer datos del pago (están en datos_pago)
+        pago_data = payment_data.get("datos_pago", payment_data)
+        
         return {
             "referencia_temporal": referencia_temporal,
             "estado": payment_data["estado"],
             "fecha_creacion": payment_data["fecha_creacion"],
-            "fecha_expiracion": payment_data["fecha_expiracion"],
+            "fecha_expiracion": payment_data["fecha_limite"],  # Usar fecha_limite en lugar de fecha_expiracion
             "pago_info": {
-                "id_socio": payment_data["id_socio"],
-                "cantidad_acciones": payment_data["cantidad_acciones"],
-                "precio_unitario": payment_data["precio_unitario"],
-                "total_pago": payment_data["total_pago"],
-                "metodo_pago": payment_data["metodo_pago"]
+                "id_socio": pago_data["id_socio"],
+                "cantidad_acciones": pago_data["cantidad_acciones"],
+                "precio_unitario": pago_data["precio_unitario"],
+                "total_pago": pago_data["total_pago"],
+                "metodo_pago": pago_data["metodo_pago"]
             }
         }
         

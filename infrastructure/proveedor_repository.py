@@ -8,7 +8,7 @@ class ProveedorRepository:
     def list_proveedores(self):
         db: Session = SessionLocal()
         try:
-            result = db.execute(text("SELECT id_proveedor, nombre_proveedor, contacto, telefono, correo_electronico, direccion, estado, productos_servicios FROM proveedores")).fetchall()
+            result = db.execute(text("SELECT id_proveedor, nombre_proveedor, contacto, telefono, correo_electronico, direccion, nit, estado, categoria FROM proveedores")).fetchall()
             return [Proveedor(*row) for row in result]
         finally:
             db.close()
@@ -16,7 +16,7 @@ class ProveedorRepository:
     def get_proveedor(self, proveedor_id: int) -> Optional[Proveedor]:
         db: Session = SessionLocal()
         try:
-            result = db.execute(text("SELECT id_proveedor, nombre_proveedor, contacto, telefono, correo_electronico, direccion, estado, productos_servicios FROM proveedores WHERE id_proveedor = :id_proveedor"), {"id_proveedor": proveedor_id}).fetchone()
+            result = db.execute(text("SELECT id_proveedor, nombre_proveedor, contacto, telefono, correo_electronico, direccion, nit, estado, categoria FROM proveedores WHERE id_proveedor = :id_proveedor"), {"id_proveedor": proveedor_id}).fetchone()
             if result:
                 return Proveedor(*result)
             return None
@@ -27,9 +27,9 @@ class ProveedorRepository:
         db: Session = SessionLocal()
         try:
             result = db.execute(text('''
-                INSERT INTO proveedores (nombre_proveedor, contacto, telefono, correo_electronico, direccion, estado, productos_servicios)
-                VALUES (:nombre_proveedor, :contacto, :telefono, :correo_electronico, :direccion, :estado, :productos_servicios)
-                RETURNING id_proveedor, nombre_proveedor, contacto, telefono, correo_electronico, direccion, estado, productos_servicios
+                INSERT INTO proveedores (nombre_proveedor, contacto, telefono, correo_electronico, direccion, nit, estado, categoria)
+                VALUES (:nombre_proveedor, :contacto, :telefono, :correo_electronico, :direccion, :nit, :estado, :categoria)
+                RETURNING id_proveedor, nombre_proveedor, contacto, telefono, correo_electronico, direccion, nit, estado, categoria
             '''), data.dict())
             db.commit()
             row = result.fetchone()

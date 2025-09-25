@@ -33,25 +33,9 @@ class FinanzaRepository:
                         WHEN mf.tipo_movimiento = 'EGRESO' AND mf.descripcion ILIKE '%material%' THEN 'Materiales'
                         ELSE 'Otros'
                     END as categoria,
-                    -- Obtener nombre del socio si la referencia contiene "Socio ID:"
-                    CASE 
-                        WHEN mf.referencia_relacionada ILIKE 'Socio ID:%' THEN 
-                            (SELECT CONCAT(s.nombres, ' ', s.apellidos) 
-                             FROM socio s 
-                             WHERE s.id_socio = CAST(REPLACE(mf.referencia_relacionada, 'Socio ID: ', '') AS INTEGER))
-                        ELSE NULL
-                    END as nombre_socio,
-                    -- Obtener nombre del proveedor si la referencia contiene "Proveedor:"
-                    CASE 
-                        WHEN mf.referencia_relacionada ILIKE 'Proveedor:%' THEN 
-                            (SELECT nombre_proveedor 
-                             FROM proveedores 
-                             WHERE id_proveedor = CAST(REPLACE(mf.referencia_relacionada, 'Proveedor: ', '') AS INTEGER))
-                        ELSE NULL
-                    END as nombre_proveedor,
                     -- Generar número de comprobante basado en ID y fecha
                     CONCAT('MF-', mf.id_movimiento, '-', TO_CHAR(mf.fecha, 'YYYYMMDD')) as numero_comprobante
-                FROM movimientofinanciero mf
+                FROM movimiento_financiero mf
                 LEFT JOIN club c ON mf.id_club = c.id_club
                 ORDER BY mf.fecha DESC, mf.id_movimiento DESC
             """)).fetchall()
@@ -77,9 +61,7 @@ class FinanzaRepository:
                 # Agregar campos adicionales como atributos
                 movimiento.nombre_club = row[9]
                 movimiento.categoria = row[10]
-                movimiento.nombre_socio = row[11]
-                movimiento.nombre_proveedor = row[12]
-                movimiento.numero_comprobante = row[13]
+                movimiento.numero_comprobante = row[11]
                 
                 movimientos.append(movimiento)
             return movimientos
@@ -133,7 +115,7 @@ class FinanzaRepository:
                     END as nombre_proveedor,
                     -- Generar número de comprobante basado en ID y fecha
                     CONCAT('MF-', mf.id_movimiento, '-', TO_CHAR(mf.fecha, 'YYYYMMDD')) as numero_comprobante
-                FROM movimientofinanciero mf
+                FROM movimiento_financiero mf
                 LEFT JOIN club c ON mf.id_club = c.id_club
                 WHERE mf.id_movimiento = :id_movimiento
             """), {"id_movimiento": movimiento_id}).fetchone()
@@ -174,7 +156,7 @@ class FinanzaRepository:
         db: Session = SessionLocal()
         try:
             result = db.execute(text('''
-                INSERT INTO movimientofinanciero (id_club, tipo_movimiento, descripcion, monto, estado, referencia_relacionada, metodo_pago)
+                INSERT INTO movimiento_financiero (id_club, tipo_movimiento, descripcion, monto, estado, referencia_relacionada, metodo_pago)
                 VALUES (:id_club, :tipo_movimiento, :descripcion, :monto, :estado, :referencia_relacionada, :metodo_pago)
                 RETURNING id_movimiento, id_club, tipo_movimiento, descripcion, monto, fecha, estado, referencia_relacionada, metodo_pago
             '''), data.dict())
@@ -212,7 +194,7 @@ class FinanzaRepository:
                 params[field] = value
             if not fields:
                 return self.get_movimiento(movimiento_id)
-            db.execute(text(f"UPDATE movimientofinanciero SET {', '.join(fields)} WHERE id_movimiento = :id_movimiento"), params)
+            db.execute(text(f"UPDATE movimiento_financiero SET {', '.join(fields)} WHERE id_movimiento = :id_movimiento"), params)
             db.commit()
             return self.get_movimiento(movimiento_id)
         finally:
@@ -221,7 +203,7 @@ class FinanzaRepository:
     def delete_movimiento(self, movimiento_id: int):
         db: Session = SessionLocal()
         try:
-            result = db.execute(text("DELETE FROM movimientofinanciero WHERE id_movimiento = :id_movimiento RETURNING id_movimiento"), {"id_movimiento": movimiento_id})
+            result = db.execute(text("DELETE FROM movimiento_financiero WHERE id_movimiento = :id_movimiento RETURNING id_movimiento"), {"id_movimiento": movimiento_id})
             db.commit()
             return result.rowcount > 0
         finally:

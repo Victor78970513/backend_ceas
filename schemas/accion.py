@@ -132,9 +132,11 @@ class EstadoPagosInfo(BaseModel):
     porcentaje_pagado: float
     saldo_pendiente: float
     pagos_restantes: int
-    precio_renovacion: float
+    precio_inicial: float
+    costo_renovacion_mensual: float
     total_pagado: float
     pagos_realizados: int
+    renovar: bool
 
 class ModalidadPagoInfo(BaseModel):
     descripcion: str

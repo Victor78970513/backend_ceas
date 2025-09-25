@@ -172,9 +172,9 @@ class AccionRepository:
                     pa.observaciones,
                     tp.descripcion as tipo_pago_desc,
                     ep.descripcion as estado_pago_desc
-                FROM pagoaccion pa
-                LEFT JOIN tipopago tp ON pa.tipo_pago = tp.id_tipo_pago
-                LEFT JOIN estadopago ep ON pa.estado_pago = ep.id_estado_pago
+                FROM pago_accion pa
+                LEFT JOIN tipo_pago tp ON pa.tipo_pago = tp.id_tipo_pago
+                LEFT JOIN estado_pago ep ON pa.estado_pago = ep.id_estado_pago
                 WHERE pa.id_accion = :accion_id
                 ORDER BY pa.fecha_de_pago DESC
             """), {"accion_id": accion_id}).fetchall()
@@ -210,7 +210,7 @@ class AccionRepository:
         try:
             result = db.execute(text("""
                 SELECT id_estado_accion, nombre_estado_accion
-                FROM estadoaccion 
+                FROM estado_accion 
                 WHERE id_estado_accion = :estado_accion_id
             """), {"estado_accion_id": estado_accion_id}).fetchone()
             
@@ -261,7 +261,7 @@ class AccionRepository:
                 SELECT id_modalidad_pago, descripcion, meses_de_gracia, 
                        porcentaje_renovacion_inicial, porcentaje_renovacion_mensual, 
                        costo_renovacion_estandar, cantidad_cuotas
-                FROM modalidadpago 
+                FROM modalidad_pago 
                 WHERE id_modalidad_pago = :modalidad_id
             """), {"modalidad_id": modalidad_id}).fetchone()
             
@@ -286,46 +286,42 @@ class AccionRepository:
     def calcular_estado_pagos(self, accion, modalidad, pagos_realizados):
         """Calcula el estado completo de pagos de una acción"""
         try:
-            # Calcular total a pagar según modalidad
-            # Usar el campo cantidad_cuotas para calcular el total real
-            cantidad_cuotas = modalidad.get("cantidad_cuotas", 1)
-            costo_por_cuota = modalidad["costo_renovacion_estandar"]
-            precio_renovacion = cantidad_cuotas * costo_por_cuota
+            from datetime import datetime, timedelta
             
-            print(f"DEBUG - Cantidad cuotas: {cantidad_cuotas}")
-            print(f"DEBUG - Costo por cuota: {costo_por_cuota}")
-            print(f"DEBUG - Precio renovación total: {precio_renovacion}")
+            # Usar el total_pago de la acción como precio inicial (no el costo de renovación)
+            precio_inicial = float(accion.total_pago) if hasattr(accion, 'total_pago') and accion.total_pago else 0.0
+            
+            # El costo de renovación mensual viene de la modalidad
+            costo_renovacion_mensual = modalidad["costo_renovacion_estandar"]
             
             # Calcular total pagado (solo pagos aprobados/validados)
-            # Asumiendo que estado_pago = 1 es "APROBADO" o similar
-            total_pagado = sum(pago.get("monto", 0) for pago in pagos_realizados if pago.get("estado_pago_id") == 1)
+            # estado_pago = 2 es "Pagado" según la BD
+            total_pagado = sum(pago.get("monto", 0) for pago in pagos_realizados if pago.get("estado_pago_id") == 2)
             
-            # Calcular saldo pendiente (no puede ser negativo)
-            saldo_pendiente = max(0, precio_renovacion - total_pagado)
+            # Calcular saldo pendiente del precio inicial
+            saldo_pendiente = max(0, precio_inicial - total_pagado)
             
-            # Calcular pagos restantes
-            pagos_restantes = 0
-            if saldo_pendiente > 0:
-                # Calcular cuántos pagos mensuales faltan
-                monto_pago_mensual = precio_renovacion * (modalidad["porcentaje_renovacion_mensual"] / 100)
-                if monto_pago_mensual > 0:
-                    pagos_restantes = int(saldo_pendiente / monto_pago_mensual) + (1 if saldo_pendiente % monto_pago_mensual > 0 else 0)
+            # Calcular pagos restantes basado en cuotas de la modalidad
+            cantidad_cuotas = modalidad.get("cantidad_cuotas", 1)
+            pagos_realizados_count = len([p for p in pagos_realizados if p.get("estado_pago_id") == 2])
+            pagos_restantes = max(0, cantidad_cuotas - pagos_realizados_count)
             
             # Determinar estado
             if saldo_pendiente <= 0:
                 estado_pago = "COMPLETAMENTE_PAGADA"
-            elif saldo_pendiente <= (precio_renovacion * 0.1):  # Menos del 10% pendiente
-                estado_pago = "CASI_PAGADA"
-            elif saldo_pendiente <= (precio_renovacion * 0.5):  # Menos del 50% pendiente
+            elif total_pagado > 0:
                 estado_pago = "PARCIALMENTE_PAGADA"
             else:
                 estado_pago = "PENDIENTE_DE_PAGO"
             
-            # Contar pagos aprobados
-            pagos_aprobados = len([p for p in pagos_realizados if p.get("estado_pago_id") == 1])
+            # Calcular porcentaje pagado basado en el precio inicial
+            porcentaje_pagado = round((total_pagado / precio_inicial) * 100, 2) if precio_inicial > 0 else 0.0
             
-            # Calcular porcentaje pagado (máximo 100%)
-            porcentaje_pagado = min(100.0, round((total_pagado / precio_renovacion) * 100, 2)) if precio_renovacion > 0 else 100.0
+            # Calcular si puede renovar (después de meses de gracia)
+            fecha_creacion = accion.fecha_creacion if hasattr(accion, 'fecha_creacion') else datetime.now()
+            meses_de_gracia = modalidad.get("meses_de_gracia", 0)
+            fecha_renovacion = fecha_creacion + timedelta(days=meses_de_gracia * 30)  # Aproximación
+            puede_renovar = datetime.now() >= fecha_renovacion
             
             return {
                 "id_accion": accion.id_accion,
@@ -338,13 +334,15 @@ class AccionRepository:
                     "costo_renovacion_estandar": modalidad["costo_renovacion_estandar"],
                     "cantidad_cuotas": modalidad["cantidad_cuotas"]
                 },
-                "precio_renovacion": precio_renovacion,
+                "precio_inicial": precio_inicial,
+                "costo_renovacion_mensual": costo_renovacion_mensual,
                 "total_pagado": total_pagado,
                 "saldo_pendiente": saldo_pendiente,
                 "pagos_restantes": pagos_restantes,
                 "estado_pago": estado_pago,
                 "porcentaje_pagado": porcentaje_pagado,
-                "pagos_realizados": pagos_aprobados,
+                "pagos_realizados": pagos_realizados_count,
+                "renovar": puede_renovar,
                 "total_pagos_registrados": len(pagos_realizados),
                 "detalle_pagos": pagos_realizados
             }

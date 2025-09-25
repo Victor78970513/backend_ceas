@@ -9,5 +9,6 @@ class Proveedor:
     telefono: Optional[str]
     correo_electronico: Optional[str]
     direccion: Optional[str]
+    nit: Optional[str]
     estado: bool
-    productos_servicios: Optional[str] 
+    categoria: Optional[str] = None 

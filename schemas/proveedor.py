@@ -7,8 +7,9 @@ class ProveedorRequest(BaseModel):
     telefono: Optional[str] = None
     correo_electronico: Optional[str] = None
     direccion: Optional[str] = None
+    nit: Optional[str] = None
     estado: bool = True
-    productos_servicios: Optional[str] = None
+    categoria: Optional[str] = None
 
 class ProveedorResponse(BaseModel):
     id_proveedor: int
@@ -17,8 +18,9 @@ class ProveedorResponse(BaseModel):
     telefono: Optional[str] = None
     correo_electronico: Optional[str] = None
     direccion: Optional[str] = None
+    nit: Optional[str] = None
     estado: bool
-    productos_servicios: Optional[str] = None
+    categoria: Optional[str] = None
 
 class ProveedorUpdateRequest(BaseModel):
     nombre_proveedor: Optional[str]
@@ -26,5 +28,6 @@ class ProveedorUpdateRequest(BaseModel):
     telefono: Optional[str]
     correo_electronico: Optional[str]
     direccion: Optional[str]
+    nit: Optional[str]
     estado: Optional[bool]
-    productos_servicios: Optional[str] 
+    categoria: Optional[str] 

@@ -39,9 +39,11 @@ class AccionUseCase:
                             "porcentaje_pagado": estado_pagos["porcentaje_pagado"],
                             "saldo_pendiente": estado_pagos["saldo_pendiente"],
                             "pagos_restantes": estado_pagos["pagos_restantes"],
-                            "precio_renovacion": estado_pagos["precio_renovacion"],
+                            "precio_inicial": estado_pagos["precio_inicial"],
+                            "costo_renovacion_mensual": estado_pagos["costo_renovacion_mensual"],
                             "total_pagado": estado_pagos["total_pagado"],
-                            "pagos_realizados": estado_pagos["pagos_realizados"]
+                            "pagos_realizados": estado_pagos["pagos_realizados"],
+                            "renovar": estado_pagos["renovar"]
                         },
                         "modalidad_pago_info": {
                             "descripcion": modalidad["descripcion"],
@@ -69,9 +71,11 @@ class AccionUseCase:
                             "porcentaje_pagado": 0,
                             "saldo_pendiente": 0,
                             "pagos_restantes": 0,
-                            "precio_renovacion": 0,
+                            "precio_inicial": 0,
+                            "costo_renovacion_mensual": 0,
                             "total_pagado": 0,
-                            "pagos_realizados": 0
+                            "pagos_realizados": 0,
+                            "renovar": False
                         },
                         "modalidad_pago_info": {
                             "descripcion": "No encontrada",
@@ -97,9 +101,11 @@ class AccionUseCase:
                         "porcentaje_pagado": 0,
                         "saldo_pendiente": 0,
                         "pagos_restantes": 0,
-                        "precio_renovacion": 0,
+                        "precio_inicial": 0,
+                        "costo_renovacion_mensual": 0,
                         "total_pagado": 0,
-                        "pagos_realizados": 0
+                        "pagos_realizados": 0,
+                        "renovar": False
                     },
                     "modalidad_pago_info": {
                         "descripcion": "Error",

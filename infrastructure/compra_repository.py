@@ -9,7 +9,7 @@ class CompraRepository:
     def list_compras(self):
         db: Session = SessionLocal()
         try:
-            # Query con JOIN para obtener productos_servicios y nombre del proveedor
+            # Query con JOIN para obtener nombre del proveedor
             result = db.execute(text("""
                 SELECT 
                     c.id_compra, 
@@ -17,9 +17,8 @@ class CompraRepository:
                     c.fecha_de_compra, 
                     c.monto_total, 
                     c.estado, 
-                    c.fecha_de_entrega, 
-                    c.cantidad_items,
-                    p.productos_servicios,
+                    c.numero_factura,
+                    c.observaciones,
                     p.nombre_proveedor
                 FROM compras c
                 LEFT JOIN proveedores p ON c.id_proveedor = p.id_proveedor
@@ -30,7 +29,6 @@ class CompraRepository:
             for row in result:
                 # Convertir fechas de datetime a string
                 fecha_compra = str(row[2]) if row[2] else None
-                fecha_entrega = str(row[5]) if row[5] else None
                 
                 compra = Compra(
                     id_compra=row[0],
@@ -38,10 +36,9 @@ class CompraRepository:
                     fecha_de_compra=fecha_compra,
                     monto_total=float(row[3]) if row[3] else 0.0,
                     estado=row[4],
-                    fecha_de_entrega=fecha_entrega,
-                    cantidad_items=row[6] if row[6] else 0,
-                    categoria=row[7] if row[7] else None,  # Texto completo de productos_servicios
-                    proveedor=row[8] if row[8] else None    # Nombre del proveedor
+                    numero_factura=row[5] if row[5] else None,
+                    observaciones=row[6] if row[6] else None,
+                    proveedor=row[7] if row[7] else None    # Nombre del proveedor
                 )
                 compras.append(compra)
             return compras
@@ -98,18 +95,17 @@ class CompraRepository:
         db: Session = SessionLocal()
         try:
             result = db.execute(text('''
-                INSERT INTO compras (id_proveedor, monto_total, estado, fecha_de_entrega, cantidad_items)
-                VALUES (:id_proveedor, :monto_total, :estado, :fecha_de_entrega, :cantidad_items)
-                RETURNING id_compra, id_proveedor, fecha_de_compra, monto_total, estado, fecha_de_entrega, cantidad_items
+                INSERT INTO compras (id_proveedor, monto_total, estado, numero_factura, observaciones)
+                VALUES (:id_proveedor, :monto_total, :estado, :numero_factura, :observaciones)
+                RETURNING id_compra, id_proveedor, fecha_de_compra, monto_total, estado, numero_factura, observaciones
             '''), data.dict())
             db.commit()
             row = result.fetchone()
             
             # Convertir fechas de datetime a string
             fecha_compra = str(row[2]) if row[2] else None
-            fecha_entrega = str(row[5]) if row[5] else None
             
-            # Obtener productos_servicios y nombre del proveedor
+            # Obtener nombre del proveedor
             proveedor_info = self._get_proveedor_info(db, row[1])
             
             return Compra(
@@ -118,9 +114,8 @@ class CompraRepository:
                 fecha_de_compra=fecha_compra,
                 monto_total=float(row[3]) if row[3] else 0.0,
                 estado=row[4],
-                fecha_de_entrega=fecha_entrega,
-                cantidad_items=row[6] if row[6] else 0,
-                categoria=proveedor_info['productos_servicios'],
+                numero_factura=row[5] if row[5] else None,
+                observaciones=row[6] if row[6] else None,
                 proveedor=proveedor_info['nombre_proveedor']
             )
         except Exception as e:
@@ -155,18 +150,17 @@ class CompraRepository:
             db.close()
     
     def _get_proveedor_info(self, db: Session, id_proveedor: int) -> dict:
-        """Obtiene información del proveedor (productos_servicios y nombre)"""
+        """Obtiene información del proveedor (nombre)"""
         try:
             result = db.execute(text("""
-                SELECT productos_servicios, nombre_proveedor FROM proveedores WHERE id_proveedor = :id_proveedor
+                SELECT nombre_proveedor FROM proveedores WHERE id_proveedor = :id_proveedor
             """), {"id_proveedor": id_proveedor}).fetchone()
             
             if result:
                 return {
-                    'productos_servicios': result[0] if result[0] else None,
-                    'nombre_proveedor': result[1] if result[1] else None
+                    'nombre_proveedor': result[0] if result[0] else None
                 }
-            return {'productos_servicios': None, 'nombre_proveedor': None}
+            return {'nombre_proveedor': None}
         except Exception as e:
             logging.error(f"Error al obtener información del proveedor: {str(e)}")
-            return {'productos_servicios': None, 'nombre_proveedor': None} 
+            return {'nombre_proveedor': None} 

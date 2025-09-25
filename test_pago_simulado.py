@@ -16,7 +16,7 @@ def login():
     """Hacer login y obtener token"""
     login_data = {
         "correo_electronico": "prueba@gmail.com",
-        "password": "123456"
+        "contrasena": "123456"
     }
     
     response = requests.post(LOGIN_URL, json=login_data)
@@ -94,22 +94,14 @@ def verificar_estado_pago(token, referencia_temporal):
         return False
 
 def confirmar_pago_simulado(token, referencia_temporal):
-    """Confirmar pago simulado (simular subida de comprobante)"""
+    """Confirmar pago simulado sin comprobante"""
     headers = {
         "Authorization": f"Bearer {token}"
-    }
-    
-    # Crear un archivo de comprobante simulado
-    comprobante_content = f"Comprobante simulado para {referencia_temporal}\nMonto: $5000.00\nFecha: {time.strftime('%Y-%m-%d %H:%M:%S')}"
-    
-    files = {
-        'comprobante': ('comprobante_simulado.txt', comprobante_content, 'text/plain')
     }
     
     response = requests.post(
         f"{ACCIONES_URL}/simular-pago/confirmar-pago",
         params={"referencia_temporal": referencia_temporal},
-        files=files,
         headers=headers
     )
     
@@ -124,7 +116,7 @@ def confirmar_pago_simulado(token, referencia_temporal):
         print(f"   🏦 Método de pago: {data['accion']['metodo_pago']}")
         print(f"   📊 Estado: {data['accion']['estado_nombre']}")
         print(f"   📄 Certificado: {'✅ Disponible' if data['certificado']['disponible'] else '❌ No disponible'}")
-        print(f"   📁 Comprobante: {data['comprobante']['nombre']} ({data['comprobante']['tamaño']} bytes)")
+        print(f"   💳 Pago creado: ID {data['pago']['id_pago']} - ${data['pago']['monto']} - Estado: {data['pago']['estado_pago']}")
         return data['accion']['id_accion']
     else:
         print(f"❌ Error confirmando pago: {response.status_code} - {response.text}")

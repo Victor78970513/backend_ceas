@@ -88,8 +88,8 @@ POST /acciones/simular-pago/crear-qr
 POST /acciones/simular-pago/confirmar-pago?referencia_temporal=TEMP_ABC123
 ```
 
-**Datos (FormData):**
-- `comprobante`: Archivo del comprobante de pago
+**Datos (Query Parameter):**
+- `referencia_temporal`: La referencia del pago temporal
 
 **Respuesta:**
 ```json
@@ -98,23 +98,18 @@ POST /acciones/simular-pago/confirmar-pago?referencia_temporal=TEMP_ABC123
   "accion": {
     "id_accion": 123,
     "id_socio": 1,
-    "cantidad_acciones": 100,
-    "precio_unitario": 50.00,
+    "cantidad_acciones": 1,
+    "precio_unitario": 5000.00,
     "total_pago": 5000.00,
     "metodo_pago": "transferencia_bancaria",
-    "estado_accion": 4,
-    "estado_nombre": "Completado",
+    "estado_accion": 2,
+    "estado_nombre": "Aprobada",
     "fecha_creacion": "2024-01-15T10:30:00"
   },
   "certificado": {
     "disponible": true,
     "ruta": "certificados/originales/certificado_accion_123_original.pdf",
     "fecha_generacion": "2024-01-15T10:30:00"
-  },
-  "comprobante": {
-    "nombre": "comprobante_simulado.pdf",
-    "tamaño": 1024,
-    "tipo": "application/pdf"
   }
 }
 ```
@@ -152,17 +147,14 @@ const crearQRPago = async (datosCompra) => {
   return data;
 };
 
-// 2. Confirmar pago con comprobante
-const confirmarPago = async (referenciaTemporal, comprobante) => {
-  const formData = new FormData();
-  formData.append('comprobante', comprobante);
-  
+// 2. Confirmar pago sin comprobante
+const confirmarPago = async (referenciaTemporal) => {
   const response = await fetch(`/acciones/simular-pago/confirmar-pago?referencia_temporal=${referenciaTemporal}`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${token}`
-    },
-    body: formData
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
   });
   
   const data = await response.json();

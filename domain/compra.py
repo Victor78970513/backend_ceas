@@ -8,7 +8,6 @@ class Compra:
     fecha_de_compra: Optional[str]
     monto_total: float
     estado: str
-    fecha_de_entrega: Optional[str]
-    cantidad_items: int
-    categoria: Optional[str] = None
+    numero_factura: Optional[str] = None
+    observaciones: Optional[str] = None
     proveedor: Optional[str] = None 

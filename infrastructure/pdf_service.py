@@ -173,20 +173,18 @@ class PDFService:
             
             logging.info("✅ PDF final generado exitosamente")
             
-            # Cifrar automáticamente el PDF
-            pdf_sin_cifrar = output_buffer.getvalue()
-            password = "123456"  # Contraseña fija para pruebas
+            # Retornar PDF sin cifrar por defecto
+            pdf_content = output_buffer.getvalue()
             
-            logging.info(f"🔐 Cifrando PDF con contraseña: {password}")
-            resultado_cifrado = self.cifrar_pdf(pdf_sin_cifrar, password)
+            logging.info("✅ PDF generado sin cifrar (acceso libre)")
             
-            # Retornar PDF cifrado y contraseña
+            # Retornar PDF sin cifrar
             return {
-                'pdf_cifrado': resultado_cifrado['pdf_cifrado'],
-                'password': password,
-                'salt': resultado_cifrado['salt'],
-                'password_hash': resultado_cifrado['password_hash'],
-                'fecha_cifrado': resultado_cifrado['fecha_cifrado']
+                'pdf_cifrado': pdf_content,  # Mantener el nombre por compatibilidad
+                'password': None,
+                'salt': None,
+                'password_hash': None,
+                'fecha_cifrado': None
             }
             
         except Exception as e:
