@@ -84,6 +84,50 @@ class AccionRepository:
         finally:
             db.close()
 
+    def get_acciones_by_socio(self, socio_id: int):
+        """Obtiene todas las acciones de un socio específico"""
+        db: Session = SessionLocal()
+        try:
+            result = db.execute(text("""
+                SELECT id_accion, id_club, id_socio, modalidad_pago, estado_accion, 
+                       certificado_pdf, certificado_cifrado, fecha_emision_certificado, 
+                       tipo_accion, cantidad_acciones, precio_unitario, total_pago, 
+                       metodo_pago, qr_data, fecha_venta, comprobante_path, fecha_comprobante
+                FROM accion 
+                WHERE id_socio = :socio_id
+                ORDER BY id_accion DESC
+            """), {"socio_id": socio_id}).fetchall()
+            
+            acciones = []
+            for row in result:
+                accion = Accion(
+                    id_accion=row[0],
+                    id_club=row[1],
+                    id_socio=row[2],
+                    modalidad_pago=row[3],
+                    estado_accion=row[4],
+                    certificado_pdf=row[5],
+                    certificado_cifrado=row[6],
+                    fecha_emision_certificado=str(row[7]) if row[7] else None,
+                    tipo_accion=row[8],
+                    cantidad_acciones=row[9] if row[9] else 1,
+                    precio_unitario=float(row[10]) if row[10] else 0.00,
+                    total_pago=float(row[11]) if row[11] else 0.00,
+                    metodo_pago=row[12] if row[12] else "efectivo",
+                    qr_data=row[13],
+                    fecha_venta=str(row[14]) if row[14] else None,
+                    comprobante_path=row[15],
+                    fecha_comprobante=str(row[16]) if row[16] else None
+                )
+                acciones.append(accion)
+            return acciones
+        except Exception as e:
+            import logging
+            logging.error(f"Error en get_acciones_by_socio: {str(e)}")
+            raise Exception(f"Error al consultar acciones del socio: {str(e)}")
+        finally:
+            db.close()
+
     def create_accion(self, data):
         db: Session = SessionLocal()
         try:

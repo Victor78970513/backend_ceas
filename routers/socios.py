@@ -45,8 +45,20 @@ def delete_socio(socio_id: int, current_user=Depends(get_current_user)):
 
 @router.get("/{socio_id}/acciones")
 def get_acciones(socio_id: int, current_user=Depends(get_current_user)):
-    use_case = SocioUseCase(SocioRepository())
-    return use_case.get_acciones(socio_id)
+    try:
+        use_case = SocioUseCase(SocioRepository())
+        return use_case.get_acciones(socio_id)
+    except Exception as e:
+        import logging
+        logging.error(f"Error en get_acciones para socio {socio_id}: {str(e)}")
+        import traceback
+        logging.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+@router.get("/{socio_id}/acciones-test")
+def get_acciones_test(socio_id: int, current_user=Depends(get_current_user)):
+    """Endpoint de prueba simple"""
+    return {"message": "Endpoint funcionando", "socio_id": socio_id, "acciones": []}
 
 @router.get("/{socio_id}/historial-pagos")
 def get_historial_pagos(socio_id: int, current_user=Depends(get_current_user)):

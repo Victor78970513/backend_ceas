@@ -38,6 +38,20 @@ def verify_token(current_user=Depends(get_current_user)):
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     
+    # Obtener socio_id si el usuario es un socio (rol = 4)
+    socio_id = None
+    if user.rol == 4:  # Rol de socio
+        try:
+            from infrastructure.socio_repository import SocioRepository
+            socio_repository = SocioRepository()
+            socio = socio_repository.get_socio_by_usuario_id(user.id_usuario)
+            if socio:
+                socio_id = socio.id_socio
+        except Exception as e:
+            # Si hay error obteniendo el socio, continuar sin socio_id
+            import logging
+            logging.warning(f"No se pudo obtener socio_id para usuario {user.id_usuario}: {str(e)}")
+    
     # Generar nuevo token
     from infrastructure.security import create_access_token
     new_token = create_access_token({
@@ -53,7 +67,8 @@ def verify_token(current_user=Depends(get_current_user)):
         rol=user.rol,
         id_usuario=user.id_usuario,
         id_club=user.id_club,
-        correo_electronico=user.correo_electronico
+        correo_electronico=user.correo_electronico,
+        socio_id=socio_id
     )
 
 @router.get("/me")

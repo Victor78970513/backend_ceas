@@ -138,8 +138,43 @@ class SocioUseCase:
         return {"detail": "Socio eliminado correctamente"}
 
     def get_acciones(self, socio_id: int):
-        # Placeholder: lógica real se implementará en el módulo de acciones
-        return []
+        """Obtiene todas las acciones de un socio específico"""
+        from infrastructure.accion_repository import AccionRepository
+        
+        # Verificar que el socio existe
+        socio = self.socio_repository.get_socio(socio_id)
+        if not socio:
+            raise HTTPException(status_code=404, detail="Socio no encontrado")
+        
+        # Obtener las acciones del socio
+        accion_repository = AccionRepository()
+        acciones = accion_repository.get_acciones_by_socio(socio_id)
+        
+        # Transformar a formato de respuesta
+        acciones_response = []
+        for accion in acciones:
+            accion_data = {
+                "id_accion": accion.id_accion,
+                "id_socio": accion.id_socio,
+                "id_club": accion.id_club,
+                "modalidad_pago": accion.modalidad_pago,
+                "estado_accion": accion.estado_accion,
+                "certificado_pdf": accion.certificado_pdf,
+                "certificado_cifrado": accion.certificado_cifrado,
+                "fecha_emision_certificado": accion.fecha_emision_certificado,
+                "tipo_accion": accion.tipo_accion,
+                "cantidad_acciones": accion.cantidad_acciones,
+                "precio_unitario": accion.precio_unitario,
+                "total_pago": accion.total_pago,
+                "metodo_pago": accion.metodo_pago,
+                "qr_data": accion.qr_data,
+                "fecha_venta": accion.fecha_venta,
+                "comprobante_path": accion.comprobante_path,
+                "fecha_comprobante": accion.fecha_comprobante
+            }
+            acciones_response.append(accion_data)
+        
+        return acciones_response
 
     def get_historial_pagos(self, socio_id: int):
         # Placeholder: lógica real se implementará en el módulo de pagos

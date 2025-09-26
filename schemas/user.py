@@ -13,6 +13,7 @@ class UserLoginResponse(BaseModel):
     id_usuario: int
     id_club: int
     correo_electronico: str
+    socio_id: Optional[int] = None
 
 class UserRegisterRequest(BaseModel):
     nombre_usuario: str

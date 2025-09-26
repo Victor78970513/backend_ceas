@@ -739,22 +739,18 @@ def servir_certificado(filename: str, current_user=Depends(get_current_user)):
         if not accion:
             raise HTTPException(status_code=404, detail="Acción no encontrada")
         
-        # Verificar autorización
+        # Verificar autorización - SOLO el socio propietario puede ver el certificado original
         es_propietario = False
         
-        # Si el usuario es admin, puede ver cualquier certificado
-        if current_user["rol"] == 1:  # Admin
-            es_propietario = True
-        else:
-            # Si el usuario es socio, verificar si es el propietario
-            if current_user["rol"] == 4:  # Socio
-                # Obtener el socio del usuario actual
-                from infrastructure.socio_repository import SocioRepository
-                socio_repository = SocioRepository()
-                socio = socio_repository.get_socio_by_usuario_id(current_user["id_usuario"])
-                
-                if socio and socio.id_socio == id_socio_propietario:
-                    es_propietario = True
+        # Solo si el usuario es socio, verificar si es el propietario
+        if current_user["rol"] == 4:  # Socio
+            # Obtener el socio del usuario actual
+            from infrastructure.socio_repository import SocioRepository
+            socio_repository = SocioRepository()
+            socio = socio_repository.get_socio_by_usuario_id(current_user["id_usuario"])
+            
+            if socio and socio.id_socio == id_socio_propietario:
+                es_propietario = True
         
         # Determinar qué archivo servir
         if es_propietario:
