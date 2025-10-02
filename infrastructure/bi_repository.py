@@ -61,7 +61,7 @@ class BIRepository:
                     COUNT(*) as total_movimientos,
                     SUM(CASE WHEN tipo_movimiento = 'INGRESO' THEN monto ELSE 0 END) as total_ingresos,
                     SUM(CASE WHEN tipo_movimiento = 'EGRESO' THEN monto ELSE 0 END) as total_egresos
-                FROM movimientofinanciero 
+                FROM movimiento_financiero 
                 WHERE fecha >= :fecha_inicio AND fecha < :fecha_fin
             """), {"fecha_inicio": fecha_inicio, "fecha_fin": fecha_fin}).fetchone()
             
@@ -87,7 +87,7 @@ class BIRepository:
                     c.nombre_club,
                     SUM(CASE WHEN mf.tipo_movimiento = 'INGRESO' THEN mf.monto ELSE 0 END) as ingresos,
                     SUM(CASE WHEN mf.tipo_movimiento = 'EGRESO' THEN mf.monto ELSE 0 END) as egresos
-                FROM movimientofinanciero mf
+                FROM movimiento_financiero mf
                 LEFT JOIN club c ON mf.id_club = c.id_club
                 WHERE mf.fecha >= :fecha_inicio AND mf.fecha < :fecha_fin
                 GROUP BY c.id_club, c.nombre_club
@@ -119,16 +119,26 @@ class BIRepository:
             top_ingresos = db.execute(text("""
                 SELECT 
                     CASE 
-                        WHEN mf.tipo_movimiento = 'INGRESO' AND mf.descripcion ILIKE '%cuota%' THEN 'Cuotas'
-                        WHEN mf.tipo_movimiento = 'INGRESO' AND mf.descripcion ILIKE '%donación%' THEN 'Donaciones'
-                        WHEN mf.tipo_movimiento = 'INGRESO' AND mf.descripcion ILIKE '%evento%' THEN 'Eventos'
+                        WHEN mf.descripcion ILIKE '%cuota%' THEN 'Cuotas Mensuales'
+                        WHEN mf.descripcion ILIKE '%evento%' THEN 'Eventos'
+                        WHEN mf.descripcion ILIKE '%servicio%' THEN 'Venta de Servicios'
+                        WHEN mf.descripcion ILIKE '%donación%' THEN 'Donaciones'
+                        WHEN mf.descripcion ILIKE '%premium%' THEN 'Membresías Premium'
                         ELSE 'Otros Ingresos'
                     END as categoria,
                     SUM(mf.monto) as monto
-                FROM movimientofinanciero mf
+                FROM movimiento_financiero mf
                 WHERE mf.fecha >= :fecha_inicio AND mf.fecha < :fecha_fin
                 AND mf.tipo_movimiento = 'INGRESO'
-                GROUP BY categoria
+                GROUP BY 
+                    CASE 
+                        WHEN mf.descripcion ILIKE '%cuota%' THEN 'Cuotas Mensuales'
+                        WHEN mf.descripcion ILIKE '%evento%' THEN 'Eventos'
+                        WHEN mf.descripcion ILIKE '%servicio%' THEN 'Venta de Servicios'
+                        WHEN mf.descripcion ILIKE '%donación%' THEN 'Donaciones'
+                        WHEN mf.descripcion ILIKE '%premium%' THEN 'Membresías Premium'
+                        ELSE 'Otros Ingresos'
+                    END
                 ORDER BY monto DESC
                 LIMIT 5
             """), {"fecha_inicio": fecha_inicio, "fecha_fin": fecha_fin}).fetchall()
@@ -137,16 +147,30 @@ class BIRepository:
             top_egresos = db.execute(text("""
                 SELECT 
                     CASE 
-                        WHEN mf.tipo_movimiento = 'EGRESO' AND mf.descripcion ILIKE '%servicio%' THEN 'Servicios'
-                        WHEN mf.tipo_movimiento = 'EGRESO' AND mf.descripcion ILIKE '%compra%' THEN 'Compras'
-                        WHEN mf.tipo_movimiento = 'EGRESO' AND mf.descripcion ILIKE '%material%' THEN 'Materiales'
+                        WHEN mf.descripcion ILIKE '%equipamiento%' THEN 'Equipamiento'
+                        WHEN mf.descripcion ILIKE '%mantenimiento%' THEN 'Mantenimiento'
+                        WHEN mf.descripcion ILIKE '%administrativo%' THEN 'Gastos Administrativos'
+                        WHEN mf.descripcion ILIKE '%marketing%' THEN 'Marketing'
+                        WHEN mf.descripcion ILIKE '%legal%' THEN 'Gastos Legales'
+                        WHEN mf.descripcion ILIKE '%salario%' THEN 'Salarios'
+                        WHEN mf.descripcion ILIKE '%seguro%' THEN 'Seguros'
                         ELSE 'Otros Egresos'
                     END as categoria,
                     SUM(mf.monto) as monto
-                FROM movimientofinanciero mf
+                FROM movimiento_financiero mf
                 WHERE mf.fecha >= :fecha_inicio AND mf.fecha < :fecha_fin
                 AND mf.tipo_movimiento = 'EGRESO'
-                GROUP BY categoria
+                GROUP BY 
+                    CASE 
+                        WHEN mf.descripcion ILIKE '%equipamiento%' THEN 'Equipamiento'
+                        WHEN mf.descripcion ILIKE '%mantenimiento%' THEN 'Mantenimiento'
+                        WHEN mf.descripcion ILIKE '%administrativo%' THEN 'Gastos Administrativos'
+                        WHEN mf.descripcion ILIKE '%marketing%' THEN 'Marketing'
+                        WHEN mf.descripcion ILIKE '%legal%' THEN 'Gastos Legales'
+                        WHEN mf.descripcion ILIKE '%salario%' THEN 'Salarios'
+                        WHEN mf.descripcion ILIKE '%seguro%' THEN 'Seguros'
+                        ELSE 'Otros Egresos'
+                    END
                 ORDER BY monto DESC
                 LIMIT 5
             """), {"fecha_inicio": fecha_inicio, "fecha_fin": fecha_fin}).fetchall()
