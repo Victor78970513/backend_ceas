@@ -25,12 +25,12 @@ class FinanzaRepository:
                     c.nombre_club,
                     -- Determinar categoría basada en tipo_movimiento y descripción
                     CASE 
-                        WHEN mf.tipo_movimiento = 'INGRESO' AND mf.descripcion ILIKE '%cuota%' THEN 'Cuotas'
-                        WHEN mf.tipo_movimiento = 'INGRESO' AND mf.descripcion ILIKE '%donación%' THEN 'Donaciones'
-                        WHEN mf.tipo_movimiento = 'INGRESO' AND mf.descripcion ILIKE '%evento%' THEN 'Eventos'
-                        WHEN mf.tipo_movimiento = 'EGRESO' AND mf.descripcion ILIKE '%servicio%' THEN 'Servicios'
-                        WHEN mf.tipo_movimiento = 'EGRESO' AND mf.descripcion ILIKE '%compra%' THEN 'Compras'
-                        WHEN mf.tipo_movimiento = 'EGRESO' AND mf.descripcion ILIKE '%material%' THEN 'Materiales'
+                        WHEN mf.tipo_movimiento = 'ingreso' AND mf.descripcion ILIKE '%cuota%' THEN 'Cuotas'
+                        WHEN mf.tipo_movimiento = 'ingreso' AND mf.descripcion ILIKE '%donación%' THEN 'Donaciones'
+                        WHEN mf.tipo_movimiento = 'ingreso' AND mf.descripcion ILIKE '%evento%' THEN 'Eventos'
+                        WHEN mf.tipo_movimiento = 'egreso' AND mf.descripcion ILIKE '%servicio%' THEN 'Servicios'
+                        WHEN mf.tipo_movimiento = 'egreso' AND mf.descripcion ILIKE '%compra%' THEN 'Compras'
+                        WHEN mf.tipo_movimiento = 'egreso' AND mf.descripcion ILIKE '%material%' THEN 'Materiales'
                         ELSE 'Otros'
                     END as categoria,
                     -- Generar número de comprobante basado en ID y fecha
@@ -89,12 +89,12 @@ class FinanzaRepository:
                     c.nombre_club,
                     -- Determinar categoría basada en tipo_movimiento y descripción
                     CASE 
-                        WHEN mf.tipo_movimiento = 'INGRESO' AND mf.descripcion ILIKE '%cuota%' THEN 'Cuotas'
-                        WHEN mf.tipo_movimiento = 'INGRESO' AND mf.descripcion ILIKE '%donación%' THEN 'Donaciones'
-                        WHEN mf.tipo_movimiento = 'INGRESO' AND mf.descripcion ILIKE '%evento%' THEN 'Eventos'
-                        WHEN mf.tipo_movimiento = 'EGRESO' AND mf.descripcion ILIKE '%servicio%' THEN 'Servicios'
-                        WHEN mf.tipo_movimiento = 'EGRESO' AND mf.descripcion ILIKE '%compra%' THEN 'Compras'
-                        WHEN mf.tipo_movimiento = 'EGRESO' AND mf.descripcion ILIKE '%material%' THEN 'Materiales'
+                        WHEN mf.tipo_movimiento = 'ingreso' AND mf.descripcion ILIKE '%cuota%' THEN 'Cuotas'
+                        WHEN mf.tipo_movimiento = 'ingreso' AND mf.descripcion ILIKE '%donación%' THEN 'Donaciones'
+                        WHEN mf.tipo_movimiento = 'ingreso' AND mf.descripcion ILIKE '%evento%' THEN 'Eventos'
+                        WHEN mf.tipo_movimiento = 'egreso' AND mf.descripcion ILIKE '%servicio%' THEN 'Servicios'
+                        WHEN mf.tipo_movimiento = 'egreso' AND mf.descripcion ILIKE '%compra%' THEN 'Compras'
+                        WHEN mf.tipo_movimiento = 'egreso' AND mf.descripcion ILIKE '%material%' THEN 'Materiales'
                         ELSE 'Otros'
                     END as categoria,
                     -- Obtener nombre del socio si la referencia contiene "Socio ID:"
