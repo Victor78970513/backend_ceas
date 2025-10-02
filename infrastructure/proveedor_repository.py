@@ -34,6 +34,12 @@ class ProveedorRepository:
             db.commit()
             row = result.fetchone()
             return Proveedor(*row)
+        except Exception as e:
+            db.rollback()
+            if "duplicate key value violates unique constraint" in str(e) and "nit" in str(e):
+                raise Exception("El NIT ya existe. Por favor, use un NIT diferente.")
+            else:
+                raise Exception(f"Error al crear proveedor: {str(e)}")
         finally:
             db.close()
 

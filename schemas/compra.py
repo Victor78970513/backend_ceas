@@ -17,6 +17,7 @@ class CompraResponse(BaseModel):
     numero_factura: Optional[str] = None
     observaciones: Optional[str] = None
     proveedor: Optional[str] = None
+    categoria_proveedor: Optional[str] = None
 
 class CompraUpdateRequest(BaseModel):
     id_proveedor: Optional[int]

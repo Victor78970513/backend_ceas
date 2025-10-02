@@ -89,8 +89,8 @@ class BIAdministrativoRepository:
 
             result = db.execute(text(f"""
                 SELECT 
-                    COALESCE(SUM(CASE WHEN mf.tipo_movimiento = 'ingreso' THEN mf.monto ELSE 0 END), 0) as ingresos,
-                    COALESCE(SUM(CASE WHEN mf.tipo_movimiento = 'egreso' THEN mf.monto ELSE 0 END), 0) as egresos,
+                    COALESCE(SUM(CASE WHEN mf.tipo_movimiento = 'INGRESO' THEN mf.monto ELSE 0 END), 0) as ingresos,
+                    COALESCE(SUM(CASE WHEN mf.tipo_movimiento = 'EGRESO' THEN mf.monto ELSE 0 END), 0) as egresos,
                     COUNT(*) as total_movimientos
                 FROM movimiento_financiero mf
                 {where_clause}
@@ -183,8 +183,8 @@ class BIAdministrativoRepository:
                 SELECT 
                     c.id_club,
                     c.nombre_club,
-                    COALESCE(SUM(CASE WHEN mf.tipo_movimiento = 'ingreso' THEN mf.monto ELSE 0 END), 0) as ingresos,
-                    COALESCE(SUM(CASE WHEN mf.tipo_movimiento = 'egreso' THEN mf.monto ELSE 0 END), 0) as egresos,
+                    COALESCE(SUM(CASE WHEN mf.tipo_movimiento = 'INGRESO' THEN mf.monto ELSE 0 END), 0) as ingresos,
+                    COALESCE(SUM(CASE WHEN mf.tipo_movimiento = 'EGRESO' THEN mf.monto ELSE 0 END), 0) as egresos,
                     COUNT(DISTINCT s.id_socio) as socios_activos,
                     COUNT(DISTINCT a.id_accion) as acciones_vendidas
                 FROM club c
@@ -393,8 +393,8 @@ class BIAdministrativoRepository:
             result = db.execute(text(f"""
                 SELECT 
                     EXTRACT(MONTH FROM mf.fecha) as mes,
-                    COALESCE(SUM(CASE WHEN mf.tipo_movimiento = 'ingreso' THEN mf.monto ELSE 0 END), 0) as ingresos,
-                    COALESCE(SUM(CASE WHEN mf.tipo_movimiento = 'egreso' THEN mf.monto ELSE 0 END), 0) as egresos,
+                    COALESCE(SUM(CASE WHEN mf.tipo_movimiento = 'INGRESO' THEN mf.monto ELSE 0 END), 0) as ingresos,
+                    COALESCE(SUM(CASE WHEN mf.tipo_movimiento = 'EGRESO' THEN mf.monto ELSE 0 END), 0) as egresos,
                     COUNT(*) as movimientos
                 FROM movimiento_financiero mf
                 {where_clause}

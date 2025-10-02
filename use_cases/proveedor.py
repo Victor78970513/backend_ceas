@@ -18,8 +18,14 @@ class ProveedorUseCase:
         return ProveedorResponse(**p.__dict__)
 
     def create_proveedor(self, data: ProveedorRequest) -> ProveedorResponse:
-        p = self.proveedor_repository.create_proveedor(data)
-        return ProveedorResponse(**p.__dict__)
+        try:
+            p = self.proveedor_repository.create_proveedor(data)
+            return ProveedorResponse(**p.__dict__)
+        except Exception as e:
+            if "NIT ya existe" in str(e):
+                raise HTTPException(status_code=400, detail="El NIT ya existe. Por favor, use un NIT diferente.")
+            else:
+                raise HTTPException(status_code=500, detail=str(e))
 
     def update_proveedor(self, proveedor_id: int, data: ProveedorUpdateRequest) -> ProveedorResponse:
         p = self.proveedor_repository.update_proveedor(proveedor_id, data)
