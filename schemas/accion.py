@@ -17,6 +17,17 @@ class AccionRequest(BaseModel):
     total_pago: Optional[float] = 0.00
     metodo_pago: Optional[str] = "efectivo"
 
+class SimularPagoRequest(BaseModel):
+    id_club: int
+    id_socio: int
+    modalidad_pago: int
+    estado_accion: int = 1  # Pendiente por defecto
+    certificado_pdf: Optional[str] = None
+    certificado_cifrado: bool = False
+    tipo_accion: Optional[str] = "compra"
+    metodo_pago: Optional[str] = "transferencia_bancaria"
+    # NO incluye total_pago - se calcula automáticamente
+
 class AccionResponse(BaseModel):
     id_accion: int
     id_club: int

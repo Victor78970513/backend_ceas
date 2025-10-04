@@ -9,4 +9,6 @@ class LogSistema:
     fecha_y_hora: Optional[str]
     modulo_o_tabla_afectada: str
     id_afectado: Optional[int]
-    descripcion_detallada: Optional[str] 
+    descripcion_detallada: Optional[str]
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None 

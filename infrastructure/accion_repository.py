@@ -332,21 +332,32 @@ class AccionRepository:
         try:
             from datetime import datetime, timedelta
             
-            # Usar el total_pago de la acción como precio inicial (no el costo de renovación)
-            precio_inicial = float(accion.total_pago) if hasattr(accion, 'total_pago') and accion.total_pago else 0.0
+            # Calcular el precio total basado en la modalidad de pago
+            # Si la modalidad tiene cantidad_cuotas > 1, el precio total es: precio_unitario * cantidad_cuotas
+            # Si no, usar el total_pago directamente
+            cantidad_cuotas = modalidad.get("cantidad_cuotas", 1)
+            precio_unitario = float(accion.precio_unitario) if hasattr(accion, 'precio_unitario') and accion.precio_unitario else 0.0
+            total_pago_accion = float(accion.total_pago) if hasattr(accion, 'total_pago') and accion.total_pago else 0.0
+            
+            # Determinar el precio total correcto
+            if cantidad_cuotas > 1 and precio_unitario > 0:
+                # Modalidad con múltiples cuotas: precio_unitario * cantidad_cuotas
+                precio_total = precio_unitario * cantidad_cuotas
+            else:
+                # Modalidad de pago único: usar total_pago
+                precio_total = total_pago_accion
             
             # El costo de renovación mensual viene de la modalidad
             costo_renovacion_mensual = modalidad["costo_renovacion_estandar"]
             
             # Calcular total pagado (solo pagos aprobados/validados)
-            # estado_pago = 2 es "Pagado" según la BD
+            # estado_pago_id = 2 es "Pagado" según la BD
             total_pagado = sum(pago.get("monto", 0) for pago in pagos_realizados if pago.get("estado_pago_id") == 2)
             
-            # Calcular saldo pendiente del precio inicial
-            saldo_pendiente = max(0, precio_inicial - total_pagado)
+            # Calcular saldo pendiente del precio total
+            saldo_pendiente = max(0, precio_total - total_pagado)
             
             # Calcular pagos restantes basado en cuotas de la modalidad
-            cantidad_cuotas = modalidad.get("cantidad_cuotas", 1)
             pagos_realizados_count = len([p for p in pagos_realizados if p.get("estado_pago_id") == 2])
             pagos_restantes = max(0, cantidad_cuotas - pagos_realizados_count)
             
@@ -358,8 +369,8 @@ class AccionRepository:
             else:
                 estado_pago = "PENDIENTE_DE_PAGO"
             
-            # Calcular porcentaje pagado basado en el precio inicial
-            porcentaje_pagado = round((total_pagado / precio_inicial) * 100, 2) if precio_inicial > 0 else 0.0
+            # Calcular porcentaje pagado basado en el precio total
+            porcentaje_pagado = round((total_pagado / precio_total) * 100, 2) if precio_total > 0 else 0.0
             
             # Calcular si puede renovar (después de meses de gracia)
             fecha_creacion = accion.fecha_creacion if hasattr(accion, 'fecha_creacion') else datetime.now()
@@ -378,7 +389,7 @@ class AccionRepository:
                     "costo_renovacion_estandar": modalidad["costo_renovacion_estandar"],
                     "cantidad_cuotas": modalidad["cantidad_cuotas"]
                 },
-                "precio_inicial": precio_inicial,
+                "precio_inicial": precio_total,
                 "costo_renovacion_mensual": costo_renovacion_mensual,
                 "total_pagado": total_pagado,
                 "saldo_pendiente": saldo_pendiente,

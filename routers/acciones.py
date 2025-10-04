@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from fastapi.responses import Response, FileResponse
-from schemas.accion import AccionRequest, AccionResponse, AccionUpdateRequest, AccionResponseCompleta, DescifrarCertificadoRequest, StripePaymentRequest, StripePaymentResponse, StripeWebhookResponse, MercadoPagoPaymentRequest, MercadoPagoPaymentResponse, MercadoPagoWebhookResponse, PayPalPaymentRequest, PayPalPaymentResponse, PayPalExecuteRequest
+from schemas.accion import AccionRequest, AccionResponse, AccionUpdateRequest, AccionResponseCompleta, DescifrarCertificadoRequest, StripePaymentRequest, StripePaymentResponse, StripeWebhookResponse, MercadoPagoPaymentRequest, MercadoPagoPaymentResponse, MercadoPagoWebhookResponse, PayPalPaymentRequest, PayPalPaymentResponse, PayPalExecuteRequest, SimularPagoRequest
 from use_cases.accion import AccionUseCase
 from infrastructure.accion_repository import AccionRepository
 from infrastructure.qr_service import QRService
@@ -1565,12 +1565,25 @@ def obtener_configuracion_paypal():
 # ==================== ENDPOINTS PARA PAGO SIMULADO (SIN SERVICIOS EXTERNOS) ====================
 
 @router.post("/simular-pago/crear-qr")
-def crear_qr_pago_simulado(request: AccionRequest, current_user=Depends(get_current_user)):
+def crear_qr_pago_simulado(request: SimularPagoRequest, current_user=Depends(get_current_user)):
     """
     Crea un QR de pago simulado y datos temporales.
     NO crea la acción aún - solo prepara el pago.
+    El total_pago se calcula automáticamente basado en la modalidad_pago.
     """
     try:
+        # Obtener datos de la modalidad de pago
+        accion_repository = AccionRepository()
+        modalidad = accion_repository.get_modalidad_pago(request.modalidad_pago)
+        
+        if not modalidad:
+            raise HTTPException(status_code=404, detail="Modalidad de pago no encontrada")
+        
+        # Calcular precio total automáticamente
+        cantidad_cuotas = modalidad.get("cantidad_cuotas", 1)
+        precio_total = modalidad.get("costo_renovacion_estandar", 0)  # Ahora es el precio total
+        precio_unitario = precio_total / cantidad_cuotas if cantidad_cuotas > 0 else precio_total
+        
         # Crear servicio de pagos temporales
         temp_payment_service = TempPaymentService()
         
@@ -1578,13 +1591,13 @@ def crear_qr_pago_simulado(request: AccionRequest, current_user=Depends(get_curr
         payment_data = {
             "id_socio": request.id_socio,
             "cantidad_acciones": 1,  # Fijo en 1 por defecto
-            "precio_unitario": request.total_pago,  # El precio unitario es igual al total
-            "total_pago": request.total_pago,
-            "metodo_pago": "transferencia",
+            "precio_unitario": precio_unitario,
+            "total_pago": precio_total,
+            "metodo_pago": request.metodo_pago or "transferencia_bancaria",
             "modalidad_pago": request.modalidad_pago,
-            "tipo_accion": request.tipo_accion,
-            "id_club": request.id_club or 1,  # Por defecto 1 si no viene
-            "estado_accion": 1  # Pendiente Pago
+            "tipo_accion": request.tipo_accion or "compra",
+            "id_club": request.id_club,
+            "estado_accion": request.estado_accion
         }
         
         # Crear pago temporal
@@ -1612,6 +1625,12 @@ def crear_qr_pago_simulado(request: AccionRequest, current_user=Depends(get_curr
                 "metodo_pago": payment_data["metodo_pago"],
                 "modalidad_pago": payment_data["modalidad_pago"],
                 "tipo_accion": payment_data["tipo_accion"]
+            },
+            "modalidad_info": {
+                "descripcion": modalidad["descripcion"],
+                "cantidad_cuotas": modalidad["cantidad_cuotas"],
+                "precio_por_cuota": precio_unitario,
+                "precio_total": precio_total
             },
             "instrucciones": [
                 "1. Realiza la transferencia bancaria con los datos del QR",
@@ -1663,7 +1682,7 @@ def confirmar_pago_simulado(
             cantidad_acciones=pago_data["cantidad_acciones"],
             precio_unitario=pago_data["precio_unitario"],
             total_pago=pago_data["total_pago"],
-            metodo_pago=pago_data["metodo_pago"]
+            metodo_pago="transferencia"  # Acortar para evitar error de BD
         )
         
         accion_creada = accion_repository.create_accion(accion_request_data)
@@ -1681,12 +1700,22 @@ def confirmar_pago_simulado(
             "tarjeta": 3
         }
         
+        # Obtener datos de la modalidad para calcular el monto correcto
+        modalidad = accion_repository.get_modalidad_pago(pago_data["modalidad_pago"])
+        if not modalidad:
+            raise HTTPException(status_code=404, detail="Modalidad de pago no encontrada")
+        
+        # Calcular el monto correcto del pago (solo la primera cuota)
+        cantidad_cuotas = modalidad.get("cantidad_cuotas", 1)
+        precio_total = pago_data["total_pago"]
+        monto_primera_cuota = precio_total / cantidad_cuotas if cantidad_cuotas > 0 else precio_total
+        
         pago_request_data = PagoSchemaRequest(
             id_accion=accion_creada.id_accion,
-            monto=pago_data["total_pago"],
+            monto=monto_primera_cuota,  # Solo la primera cuota, no el total
             tipo_pago=tipo_pago_map.get(pago_data["metodo_pago"], 2),  # Por defecto transferencia
             estado_pago=2,  # Pagado
-            observaciones=f"Pago simulado - Referencia: {referencia_temporal}"
+            observaciones=f"Pago simulado - Primera cuota de {cantidad_cuotas} - Referencia: {referencia_temporal}"
         )
         
         pago_creado = pago_repository.create_pago(pago_request_data)
