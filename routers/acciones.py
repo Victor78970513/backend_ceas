@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
-from fastapi.responses import Response, FileResponse
+from fastapi.responses import Response, FileResponse, StreamingResponse
 from schemas.accion import AccionRequest, AccionResponse, AccionUpdateRequest, AccionResponseCompleta, DescifrarCertificadoRequest, StripePaymentRequest, StripePaymentResponse, StripeWebhookResponse, MercadoPagoPaymentRequest, MercadoPagoPaymentResponse, MercadoPagoWebhookResponse, PayPalPaymentRequest, PayPalPaymentResponse, PayPalExecuteRequest, SimularPagoRequest
 from use_cases.accion import AccionUseCase
 from infrastructure.accion_repository import AccionRepository
@@ -10,6 +10,7 @@ from infrastructure.stripe_service import StripeService
 from infrastructure.mercadopago_service import MercadoPagoService
 from infrastructure.paypal_service import PayPalService
 from infrastructure.socio_repository import SocioRepository
+from infrastructure.reporte_acciones_service import ReporteAccionesService
 from fastapi.security import OAuth2PasswordBearer
 from typing import List
 import jwt
@@ -19,6 +20,7 @@ import json
 import os
 import logging
 from datetime import datetime
+from io import BytesIO
 
 router = APIRouter(prefix="/acciones", tags=["acciones"])
 
@@ -1854,5 +1856,50 @@ def limpiar_pagos_temporales(current_user=Depends(get_current_user)):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error limpiando pagos temporales: {str(e)}")
+
+@router.get("/reporte/descargar")
+def descargar_reporte_acciones(current_user=Depends(get_current_user)):
+    """
+    Genera y descarga un reporte de acciones en formato PDF con gráficas profesionales
+    """
+    try:
+        # Obtener todas las acciones con estado de pagos usando el use case
+        from use_cases.accion import AccionUseCase
+        use_case = AccionUseCase(AccionRepository())
+        acciones_completas = use_case.list_acciones()
+        
+        # Preparar datos para el reporte
+        acciones_data = []
+        for accion in acciones_completas:
+            acciones_data.append({
+                'id_accion': accion.get('id_accion'),
+                'socio_titular': accion.get('socio_titular', 'Socio'),
+                'tipo_accion': accion.get('tipo_accion', 'compra'),
+                'fecha_venta': accion.get('fecha_venta'),
+                'estado_pago': accion.get('estado_pagos', {}).get('estado_pago', 'N/A'),
+                'estado_pagos': accion.get('estado_pagos', {})
+            })
+        
+        # Generar PDF con gráficas
+        reporte_service = ReporteAccionesService()
+        pdf_data = reporte_service.generar_pdf_acciones(acciones_data)
+        
+        fecha_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"reporte_acciones_{fecha_str}.pdf"
+        
+        # Retornar archivo para descarga
+        return StreamingResponse(
+            BytesIO(pdf_data),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+        
+    except Exception as e:
+        import traceback
+        logging.error(f"Error al generar reporte de acciones: {str(e)}")
+        logging.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error al generar reporte: {str(e)}")
 
 # ==================== ENDPOINTS PARA PAGO SIMULADO (SIN SERVICIOS EXTERNOS) ==================== 
