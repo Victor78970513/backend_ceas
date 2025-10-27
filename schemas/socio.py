@@ -4,7 +4,7 @@ from typing import Optional
 class SocioRequest(BaseModel):
     # Campos fijos - no se solicitan al frontend
     id_club: Optional[int] = 1  # Siempre será 1 por el momento
-    estado: Optional[int] = 2   # Siempre será 2 por el momento
+    estado: Optional[int] = 1   # Siempre será 1 por el momento (1=Activo, 2=Inactivo)
     tipo_membresia: Optional[str] = "accionista"  # Siempre será "accionista"
     
     # Campos requeridos del frontend
